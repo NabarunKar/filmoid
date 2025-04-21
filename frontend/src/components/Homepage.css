@@ -1,0 +1,55 @@
+/* src/components/HomePage.css */
+
+.home-container {
+    background: #181C14;
+    color: #ECDFCC;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;    /* center children horizontally */
+    /* remove justify-content: center; */
+  }
+  
+  .filmoid-title {
+    font-family: 'Playwrite RO', sans-serif;
+    font-weight: 300;
+    font-size: 3rem;
+    margin: 1rem 0;
+    text-align: center;
+    color: #ECDFCC;
+    
+    /* subtle base glow */
+    text-shadow: 0 0 4px #ECDFCC, 
+                 0 0 8px #ECDFCC;
+    transition: text-shadow 0.3s ease-in-out;
+    cursor: default;
+  }
+  
+  .filmoid-title:hover {
+    /* ramp up the glow on hover */
+    text-shadow: 0 0 8px #ECDFCC, 
+                 0 0 16px #ECDFCC, 
+                 0 0 24px #ECDFCC;
+  }
+  
+  /* This container of buttons will auto‑center itself vertically */
+  .button-row {
+    display: flex;
+    gap: 1rem;
+    margin: auto 0;         /* auto top & bottom margins center it in the column */
+  }
+  
+  /* buttons stay the same */
+  .home-button {
+    background: #3C3D37;
+    color: #ECDFCC;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 1.1rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+  }
+  .home-button:hover {
+    opacity: 0.9;
+  }
+  
