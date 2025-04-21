@@ -23,37 +23,44 @@
     transition: text-shadow 0.3s ease-in-out;
     cursor: default;
   }
-  /* table reset + centering */
+/* make all columns equal width and stable */
 .image-table {
     border-collapse: collapse;
-    /* transparent borders by default */
+    margin-top: 10rem;
+    table-layout: fixed;    /* ← equal, fixed columns */
+    width: 60%;             /* or 60%, 100%, whatever fits */
   }
-
+  
+  /* pad images farther apart, align images at top of their cell */
   .image-table td {
     border: 1px solid transparent;
-    padding: 1rem 2.5rem;  /* increases left/right space between images */
-  }
-
-  .image-table {
-    border-collapse: collapse;
-    margin-top: 7rem;    
+    padding: 1rem 2.5rem;
+    vertical-align: top;    /* keep img row at top of its cells */
   }
   
-  /* images side-by-side, fixed size or responsive */
-.table-image {
-  cursor: pointer;
-  max-width: 150px;
-  transition: transform 0.2s;
-}
+  /* second row: give every desc‑cell the same height */
+  .image-table tr:nth-child(2) td {
+    height: 3rem;           /* reserve a fixed 3rem of space */
+    vertical-align: middle; /* center text vertically in that 3rem */
+    text-align: center;     /* center text horizontally */
+    font-size: 1rem;
+    color: #ECDFCC;
+  }
   
+  /* your existing image hover/selected styles */
+  .table-image {
+    cursor: pointer;
+    max-width: 150px;
+    transition: transform 0.2s;
+  }
   .table-image:hover {
     transform: scale(1.05);
   }
-  /* optional highlight on selected */
-.table-image.selected {
+  .table-image.selected {
     outline: 2px solid #ECDFCC;
     outline-offset: 4px;
   }
+  
   
   /* description cells */
   .desc-cell {
@@ -87,5 +94,14 @@
   }
   .home-button:hover {
     opacity: 0.9;
+  }
+  
+  .desc-link {
+    color: #ECDFCC;
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .desc-link:hover {
+    text-decoration: underline;
   }
   

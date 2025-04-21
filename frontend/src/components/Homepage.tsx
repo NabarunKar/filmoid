@@ -1,22 +1,18 @@
 import React, { useState } from 'react'
+import { Link } from 'react-router-dom'
 import './HomePage.css'
 
-// If you put images in public/images, reference by path:
 const imageUrls = [
-  'public/images/video-player.png',
-  'public/images/mood1.png',
-  'public/images/conversation.png',
-]
-
-// Or if in src/assets/images:
-// import img1 from '../assets/images/img1.png'
-// …then use [img1, img2, img3]
-
+    'public/images/video-player.png',
+    'public/images/mood1.png',
+    'public/images/conv2.png',
+  ]
 const descriptions = [
-  'Description for image 1',
-  'Description for image 2',
-  'Description for image 3',
+  'In the mood for a movie? Get some recommendations!',
+  'Feeling something? Tell us how you feel and we\'ll suggest a movie!',
+  'Wanna talk about a movie? We got you!',
 ]
+const paths = ['/recommendations','/mood','/questions']
 
 export default function HomePage() {
   const [selected, setSelected] = useState<number | null>(null)
@@ -24,7 +20,6 @@ export default function HomePage() {
   return (
     <div className="home-container">
       <h1 className="filmoid-title">Filmoid</h1>
-
       <table className="image-table">
         <tbody>
           <tr>
@@ -42,7 +37,11 @@ export default function HomePage() {
           <tr>
             {imageUrls.map((_, i) => (
               <td key={i} className="desc-cell">
-                {selected === i ? descriptions[i] : ''}
+                {selected === i && (
+                  <Link to={paths[i]} className="desc-link">
+                    {descriptions[i]}
+                  </Link>
+                )}
               </td>
             ))}
           </tr>
