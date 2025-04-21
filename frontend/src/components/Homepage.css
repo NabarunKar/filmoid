@@ -1,13 +1,12 @@
 /* src/components/HomePage.css */
 
-.home-container {
+  .home-container {
     background: #181C14;
     color: #ECDFCC;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    align-items: center;    /* center children horizontally */
-    /* remove justify-content: center; */
+    align-items: center;
   }
   
   .filmoid-title {
@@ -24,7 +23,44 @@
     transition: text-shadow 0.3s ease-in-out;
     cursor: default;
   }
+  /* table reset + centering */
+.image-table {
+    border-collapse: collapse;
+    /* transparent borders by default */
+  }
+
+  .image-table td {
+    border: 1px solid transparent;
+    padding: 1rem 2.5rem;  /* increases left/right space between images */
+  }
+
+  .image-table {
+    border-collapse: collapse;
+    margin-top: 7rem;    
+  }
   
+  /* images side-by-side, fixed size or responsive */
+.table-image {
+  cursor: pointer;
+  max-width: 150px;
+  transition: transform 0.2s;
+}
+  
+  .table-image:hover {
+    transform: scale(1.05);
+  }
+  /* optional highlight on selected */
+.table-image.selected {
+    outline: 2px solid #ECDFCC;
+    outline-offset: 4px;
+  }
+  
+  /* description cells */
+  .desc-cell {
+    text-align: center;
+    font-size: 1rem;
+    height: 2rem;           /* reserve space */
+  }
   .filmoid-title:hover {
     /* ramp up the glow on hover */
     text-shadow: 0 0 8px #ECDFCC, 
