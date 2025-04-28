@@ -1,5 +1,3 @@
-# Script Documentation: `670_project.py`
-
 ## Overview
 
 This script builds a personalized movie recommendation system using the SVD (Singular Value Decomposition) algorithm from the `surprise` library. The system uses collaborative filtering based on historical movie ratings and a user's recent ratings to suggest movies the user is likely to enjoy.
@@ -23,7 +21,6 @@ The script supports two main modes:
 3. `movie_data.csv`:  
    - Metadata for all available movies.
    - Used to ensure that recommended movie IDs map to real movie titles and metadata.
-   - Columns expected: `movie_id`, along with additional metadata (not explicitly accessed here).
 
 ---
 
