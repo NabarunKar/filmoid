@@ -10,9 +10,9 @@ scripts/
 
 ├ mood_recommender.py # Recommends movies based on user mood 
 
-├ plot_qa.py # Answers questions about movie plots 
+├ q_a_plot.py # Answers questions about movie plots 
 
-├ past_ratings_recommender.py Recommends movies using collaborative filtering 
+├ recommendation.py Recommends movies using collaborative filtering 
 
 ├ frontend/ # Contains the front-end interface code
 
