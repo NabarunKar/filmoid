@@ -14,7 +14,10 @@ scripts/
 
 ├ recommendation.py Recommends movies using collaborative filtering 
 
-├ frontend/ # Contains the front-end interface code
+
+frontend/ 
+
+Contains the front-end interface code
 
 
 ## Features
