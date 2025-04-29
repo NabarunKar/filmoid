@@ -1,5 +1,7 @@
 # Movie Recommendation System
 
+Demo video: https://www.youtube.com/watch?v=_roQRECDNK0
+
 This repository contains the core components of a modular movie recommendation project. It supports three main features: mood-based movie recommendations, plot-based question answering, and personalized recommendations based on user ratings.
 
 ## Directory Structure
