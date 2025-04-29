@@ -11,11 +11,10 @@ export default function RecommendationsPage() {
   const [movies, setMovies] = useState<Movie[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedMovies, setSelectedMovies] = useState<number[]>([])
+  const [ratings, setRatings] = useState<Record<number, number>>({})
 
-  // load your TMDb v3 key from .env
   const TMDB_V3 = import.meta.env.VITE_TMDB_V3 as string
 
-  // fetch TMDb whenever query changes
   useEffect(() => {
     if (!query.trim()) {
       setMovies([])
@@ -48,10 +47,10 @@ export default function RecommendationsPage() {
     return () => { controller.abort() }
   }, [query, TMDB_V3])
 
-  // toggle selection, max 5
   const toggleSelect = (id: number) => {
     setSelectedMovies(prev => {
       if (prev.includes(id)) {
+        setRatings(r => { const copy = { ...r }; delete copy[id]; return copy })
         return prev.filter(x => x !== id)
       }
       if (prev.length >= 5) {
@@ -62,14 +61,18 @@ export default function RecommendationsPage() {
     })
   }
 
-  // for debugging / later use
+  const handleRatingChange = (id: number, value: number) => {
+    setRatings(r => ({ ...r, [id]: value }))
+  }
+
   useEffect(() => {
-    console.log('Selected movie IDs:', selectedMovies)
-  }, [selectedMovies])
+    console.log('Selected IDs:', selectedMovies)
+    console.log('Ratings map:', ratings)
+  }, [selectedMovies, ratings])
 
   return (
     <div className="relative w-full min-h-screen bg-[#181C14] text-[#ECDFCC]">
-      {/* absolutely-centered search box */}
+      {/* Centered search box */}
       <div className="absolute inset-0 flex flex-col items-center justify-center px-8">
         <h2 className="text-2xl mb-4">Search for a movie</h2>
         <input
@@ -82,41 +85,52 @@ export default function RecommendationsPage() {
         {loading && <p className="mt-4">Loading…</p>}
       </div>
 
-      {/* results below, with a little top-padding */}
+      {/* Results & selection/rating */}
       <div className="pt-[60vh] px-8">
         <p className="text-center mb-4">
           Selected {selectedMovies.length} / 5
         </p>
-        <ul className="space-y-4">
+        <ul className="flex flex-wrap justify-center gap-6">
           {movies.map(movie => (
             <li
-            key={movie.id}
-            onClick={() => toggleSelect(movie.id)}
-            className={`
-              flex
-              flex-col              /* stack image above title */
-              items-center          /* center everything horizontally */
-              gap-2
-              p-2
-              rounded-md
-              cursor-pointer
-              ${selectedMovies.includes(movie.id) ? 'ring-4 ring-[#ECDFCC]' : ''}
-            `}
-          >
-            {movie.poster_path ? (
-              <img
-                src={`https://image.tmdb.org/t/p/w1280${movie.poster_path}`}
-                alt={movie.title}
-                className="w-1/4 h-auto rounded"  /* 25% width, auto height */
-              />
-            ) : (
-              <div className="h-6 w-4 bg-gray-700 flex items-center justify-center">
-                N/A
-              </div>
-            )}
-            <span className="text-lg text-center">{movie.title}</span>
-          </li>
-          
+              key={movie.id}
+              onClick={() => toggleSelect(movie.id)}
+              className={`
+                flex flex-col items-center gap-2 p-2 rounded-md cursor-pointer
+                ${selectedMovies.includes(movie.id) ? 'ring-4 ring-[#ECDFCC]' : ''}
+              `}
+            >
+              {/* poster */}
+              {movie.poster_path ? (
+                <img
+                  src={`https://image.tmdb.org/t/p/w1280${movie.poster_path}`}
+                  alt={movie.title}
+                  className="w-1/4 h-auto rounded"
+                />
+              ) : (
+                <div className="h-24 w-16 bg-gray-700 flex items-center justify-center">
+                  N/A
+                </div>
+              )}
+
+              {/* title */}
+              <span className="text-lg text-center">{movie.title}</span>
+
+              {/* rating dropdown, only for selected */}
+              {selectedMovies.includes(movie.id) && (
+                <select
+                  onClick={e => e.stopPropagation()}
+                  value={ratings[movie.id] ?? ''}
+                  onChange={e => handleRatingChange(movie.id, Number(e.target.value))}
+                  className="mt-1 w-20 p-1 bg-[#3C3D37] text-[#ECDFCC] rounded"
+                >
+                  <option value="" disabled>Rate 1–10</option>
+                  {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              )}
+            </li>
           ))}
         </ul>
       </div>
