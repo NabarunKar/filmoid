@@ -1,11 +1,11 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import './HomePage.css'
+import './Homepage.css'
 
 const imageUrls = [
-    'public/images/video-player.png',
-    'public/images/mood1.png',
-    'public/images/conv2.png',
+  '/images/video-player.png',
+  '/images/mood1.png',
+  '/images/conv2.png',
   ]
 const descriptions = [
   'In the mood for a movie? Get some recommendations!',

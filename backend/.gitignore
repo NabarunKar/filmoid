@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Large trained artifacts
+models/*.pkl
+!models/svd_model.pkl
+models/*.joblib
+models/*.zip
+models/*.bin

@@ -1,0 +1,47 @@
+# --- OS junk ---
+.DS_Store
+**/.DS_Store
+
+# --- Editor / tooling ---
+.vscode/
+.idea/
+
+# --- Frontend env (secrets) ---
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# --- Python ---
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# --- Jupyter ---
+**/.ipynb_checkpoints/
+
+# --- Large ML artifacts / datasets (keep out of git by default) ---
+**/*.joblib
+**/*.pkl
+**/*.safetensors
+**/*.bin
+**/*.pt
+**/*.pth
+
+# Allow-list specific model files (intended to be tracked via Git LFS)
+!backend/models/svd_model.pkl
+
+# Large dataset formats often downloaded/generated locally
+**/*.zip
+
+# Project-specific local data that shouldn't be committed by default
+scripts/Recommendation/user_ratings.csv
+
+# --- Filmoid notebooks: local datasets / model artifacts ---
+# Tag Genome (very large; treat as local download)
+scripts/Mood Based Recommendations/tag-genome/**
+
+# Notebook-produced model artifacts
+scripts/Mood Based Recommendations/brain/**
+scripts/Plot Based Q&A/brain/**
