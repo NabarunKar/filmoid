@@ -8,3 +8,4 @@ models/*.pkl
 models/*.joblib
 models/*.zip
 models/*.bin
+models/tmdb_to_slug.csv
