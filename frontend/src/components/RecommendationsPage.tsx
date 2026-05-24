@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 
+import backgroundGif from '../../../Resources/t1r3_1_968.gif'
+import './RecommendationsPage.css'
+
 type Movie = {
   id: number
   title: string
@@ -83,11 +86,6 @@ export default function RecommendationsPage() {
     setRatings(r => ({ ...r, [id]: value }))
   }
 
-  useEffect(() => {
-    console.log('Selected IDs:', selectedMovies)
-    console.log('Ratings map:', ratings)
-  }, [selectedMovies, ratings])
-
   const ratedMovies = selectedMovies
     .map(id => ({ id, rating: ratings[id] }))
     .filter(x => typeof x.rating === 'number' && !Number.isNaN(x.rating))
@@ -153,193 +151,102 @@ export default function RecommendationsPage() {
   }
 
   return (
-    <div
-      style={{
-        width: '100%',
-        minHeight: '100vh',
-        background: '#181C14',
-        color: '#ECDFCC',
-        padding: '2rem',
-        boxSizing: 'border-box',
-      }}
-    >
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <h2 style={{ marginTop: 0 }}>Rate movies (min 5)</h2>
-        <p style={{ opacity: 0.9, marginTop: 0 }}>
-          Search for movies, click to select, then rate them 1–10.
-        </p>
-
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          <input
-            type="text"
-            placeholder="Type a movie name…"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={{
-              flex: '1 1 320px',
-              maxWidth: 520,
-              padding: '0.6rem 0.75rem',
-              borderRadius: 8,
-              border: '1px solid #3C3D37',
-              background: '#3C3D37',
-              color: '#ECDFCC',
-              outline: 'none',
-            }}
-          />
-
-          <button
-            type="button"
-            disabled={!canGetRecs || recsLoading}
-            onClick={getRecommendations}
-            style={{
-              padding: '0.6rem 0.9rem',
-              borderRadius: 8,
-              border: '1px solid transparent',
-              background: canGetRecs ? '#ECDFCC' : '#3C3D37',
-              color: canGetRecs ? '#181C14' : '#ECDFCC',
-              cursor: canGetRecs ? 'pointer' : 'not-allowed',
-            }}
-          >
-            {recsLoading ? 'Getting recs…' : "I'm ready for my recs"}
-          </button>
+    <div className="recsPage" style={{ ['--recs-bg' as any]: `url(${backgroundGif})` }}>
+      <div className="recsInner">
+        <div className="hero">
+          <div>
+            <h1 className="title">Filmoid</h1>
+            <p className="subtitle">Rate at least 5 movies, then get recommendations.</p>
+          </div>
+          <div className="stats" aria-label="Selection summary">
+            <div className="pill">Selected: {selectedMovies.length}</div>
+            <div className="pill">Rated: {ratedMovies.length} / 5</div>
+          </div>
         </div>
 
-        {recsError && (
-          <div
-            style={{
-              marginTop: '0.75rem',
-              padding: '0.75rem',
-              borderRadius: 8,
-              background: '#2b2f25',
-              border: '1px solid #3C3D37',
-            }}
-          >
-            <strong>Error:</strong> {recsError}
-          </div>
-        )}
+        <div className="panel">
+          <div className="controls">
+            <input
+              className="textInput"
+              type="text"
+              placeholder="Type a movie name…"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+            />
 
-        {recommendations.length > 0 && (
-          <div style={{ marginTop: '1.5rem' }}>
-            <h3 style={{ marginBottom: '0.75rem' }}>Your recommendations</h3>
-            <ul
-              style={{
-                listStyle: 'none',
-                padding: 0,
-                margin: 0,
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '1rem',
-              }}
+            <button
+              className="primaryButton"
+              type="button"
+              disabled={!canGetRecs || recsLoading}
+              onClick={getRecommendations}
             >
-              {recommendations.map(movie => (
+              {recsLoading ? 'Getting recs…' : "I'm ready for my recs"}
+            </button>
+          </div>
+
+          <div className="inlineNote">
+            Search for movies, click to select, then rate them 1–10.
+          </div>
+
+          {recsError && (
+            <div className="errorBox" role="alert">
+              <strong>Error:</strong> {recsError}
+            </div>
+          )}
+
+          {recommendations.length > 0 && (
+            <>
+              <h2 className="sectionTitle">Your recommendations</h2>
+              <ul className="grid" aria-label="Recommendations">
+                {recommendations.map(movie => (
+                  <li key={movie.id} className="card" style={{ cursor: 'default' }}>
+                    {movie.poster_path ? (
+                      <img
+                        className="poster"
+                        src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
+                        alt={movie.title}
+                      />
+                    ) : (
+                      <div className="posterFallback">No poster</div>
+                    )}
+                    <div className="movieTitle">{movie.title}</div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {loading && <div className="inlineNote">Loading search results…</div>}
+
+          <h2 className="sectionTitle">Search results</h2>
+          <ul className="grid" aria-label="Search results">
+            {movies.map(movie => {
+              const isSelected = selectedMovies.includes(movie.id)
+              return (
                 <li
                   key={movie.id}
-                  style={{
-                    width: 180,
-                    padding: '0.75rem',
-                    borderRadius: 10,
-                    background: '#1f241a',
-                    boxSizing: 'border-box',
-                  }}
+                  onClick={() => toggleSelect(movie.id)}
+                  className={`card ${isSelected ? 'cardSelected' : ''}`}
                 >
                   {movie.poster_path ? (
                     <img
+                      className="poster"
                       src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
                       alt={movie.title}
-                      style={{ width: '100%', borderRadius: 8, display: 'block' }}
                     />
                   ) : (
-                    <div
-                      style={{
-                        height: 240,
-                        borderRadius: 8,
-                        background: '#3C3D37',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      No poster
-                    </div>
+                    <div className="posterFallback">No poster</div>
                   )}
-                  <div style={{ marginTop: '0.5rem', fontWeight: 600 }}>{movie.title}</div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
-        <div style={{ marginTop: '0.75rem', opacity: 0.9 }}>
-          <div>Selected: {selectedMovies.length}</div>
-          <div>Rated: {ratedMovies.length} / 5</div>
-        </div>
+                  <div className="movieTitle">{movie.title}</div>
 
-        {loading && <p style={{ marginTop: '1rem' }}>Loading search results…</p>}
-
-        <ul
-          style={{
-            listStyle: 'none',
-            padding: 0,
-            margin: '1.25rem 0 0',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            justifyContent: 'flex-start',
-          }}
-        >
-          {movies.map(movie => {
-            const isSelected = selectedMovies.includes(movie.id)
-            return (
-              <li
-                key={movie.id}
-                onClick={() => toggleSelect(movie.id)}
-                style={{
-                  width: 180,
-                  padding: '0.75rem',
-                  borderRadius: 10,
-                  background: '#1f241a',
-                  border: isSelected ? '2px solid #ECDFCC' : '2px solid transparent',
-                  cursor: 'pointer',
-                  boxSizing: 'border-box',
-                }}
-              >
-                {movie.poster_path ? (
-                  <img
-                    src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
-                    alt={movie.title}
-                    style={{ width: '100%', borderRadius: 8, display: 'block' }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      height: 240,
-                      borderRadius: 8,
-                      background: '#3C3D37',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    No poster
-                  </div>
-                )}
-
-                <div style={{ marginTop: '0.5rem', fontWeight: 600 }}>{movie.title}</div>
-
-                {isSelected && (
-                  <div style={{ marginTop: '0.5rem' }}>
+                  {isSelected && (
                     <select
+                      className="ratingSelect"
                       onClick={e => e.stopPropagation()}
                       value={ratings[movie.id] ?? ''}
                       onChange={e => handleRatingChange(movie.id, Number(e.target.value))}
-                      style={{
-                        width: '100%',
-                        padding: '0.4rem',
-                        background: '#3C3D37',
-                        color: '#ECDFCC',
-                        borderRadius: 8,
-                        border: '1px solid #3C3D37',
-                      }}
+                      aria-label={`Rating for ${movie.title}`}
                     >
                       <option value="" disabled>
                         Rate 1–10
@@ -350,17 +257,11 @@ export default function RecommendationsPage() {
                         </option>
                       ))}
                     </select>
-                  </div>
-                )}
-              </li>
-            )
-          })}
-        </ul>
-
-        <div style={{ marginTop: '2rem', opacity: 0.9 }}>
-          <a href="/home" style={{ color: '#ECDFCC' }}>
-            Other tools (mood / Q&A)
-          </a>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
         </div>
       </div>
     </div>
