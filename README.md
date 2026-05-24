@@ -1,36 +1,34 @@
-# Movie Recommendation System
+# Filmoid — Recommendation-Only
 
-Demo video: https://www.youtube.com/watch?v=_roQRECDNK0
+This branch contains only the movie recommendation web app (ratings-based recommendations).
 
-This repository contains the core components of a modular movie recommendation project. It supports three main features: mood-based movie recommendations, plot-based question answering, and personalized recommendations based on user ratings.
+## What’s included
 
-## Directory Structure
+- `frontend/`: Vite + React UI that lets you search TMDB, select movies, rate them 1–10, and request recommendations.
+- `backend/`: FastAPI endpoint `POST /api/recommendations`.
+	- Tries to use a Surprise SVD model from `backend/models/svd_model.pkl` when available.
+	- Falls back to a TMDB-weighted blend so the UI works end-to-end without an SVD artifact.
+- `Resources/`: kept intentionally for future work.
 
-scripts/ 
+## Local dev
 
-├ mood_recommender.py # Recommends movies based on user mood 
+Backend:
 
-├ q_a_plot.py # Answers questions about movie plots 
+```bash
+cd backend
+python3 -m pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+```
 
-├ recommendation.py Recommends movies using collaborative filtering 
+Frontend:
 
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-frontend/ 
+Environment variables (frontend):
 
-Contains the front-end interface code
-
-
-## Features
-
-- **Mood-Based Recommendations:** Suggests movies based on emotional context (e.g. feel-good, nostalgic, suspenseful).
-- **Plot-Based Question Answering:** Allows users to ask natural language questions about movie plots.
-- **Ratings-Based Recommendations:** Uses a collaborative filtering model to suggest movies based on previous user ratings.
-
-## Folder Overview
-
-- `scripts/`: Contains all backend logic, including data processing, model building, and recommendation algorithms.
-- `frontend/`: Contains the front-end code that powers the user interface for interacting with the system.
-
-## Getting Started
-
-Each script can be run independently. Refer to comments within the scripts for usage guidance. Make sure necessary dependencies and data files are set up before running the code.
+- `VITE_TMDB_V3` (required): TMDB v3 API key
+- `VITE_API_BASE_URL` (optional): defaults to `http://localhost:8000`
