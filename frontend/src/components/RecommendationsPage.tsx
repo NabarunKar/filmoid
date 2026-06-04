@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
-import backgroundGif from '../../../Resources/t1r3_1_968.gif'
+import backgroundVideo from '../../../Resources/trimmed.mp4'
 import './RecommendationsPage.css'
 
 type Movie = {
@@ -151,7 +151,22 @@ export default function RecommendationsPage() {
   }
 
   return (
-    <div className="recsPage" style={{ ['--recs-bg' as any]: `url(${backgroundGif})` }}>
+    <div className="recsPage">
+      <video
+        className="recsBgVideo recsBgVideoActive"
+        autoPlay
+        playsInline
+        muted
+        loop
+        preload="auto"
+        aria-hidden="true"
+        tabIndex={-1}
+        disablePictureInPicture
+      >
+        <source src={backgroundVideo} type="video/mp4" />
+      </video>
+
+      <div className="recsOverlay" aria-hidden="true" />
       <div className="recsInner">
         <div className="hero">
           <div>
@@ -159,7 +174,6 @@ export default function RecommendationsPage() {
             <p className="subtitle">Rate at least 5 movies, then get recommendations.</p>
           </div>
           <div className="stats" aria-label="Selection summary">
-            <div className="pill">Selected: {selectedMovies.length}</div>
             <div className="pill">Rated: {ratedMovies.length} / 5</div>
           </div>
         </div>
@@ -174,14 +188,16 @@ export default function RecommendationsPage() {
               onChange={e => setQuery(e.target.value)}
             />
 
-            <button
-              className="primaryButton"
-              type="button"
-              disabled={!canGetRecs || recsLoading}
-              onClick={getRecommendations}
-            >
-              {recsLoading ? 'Getting recs…' : "I'm ready for my recs"}
-            </button>
+            {canGetRecs ? (
+              <button
+                className="primaryButton"
+                type="button"
+                disabled={recsLoading}
+                onClick={getRecommendations}
+              >
+                {recsLoading ? 'Getting recs…' : "I'm ready for my recs"}
+              </button>
+            ) : null}
           </div>
 
           <div className="inlineNote">
@@ -218,46 +234,50 @@ export default function RecommendationsPage() {
 
           {loading && <div className="inlineNote">Loading search results…</div>}
 
-          <h2 className="sectionTitle">Search results</h2>
-          <ul className="grid" aria-label="Search results">
+          {/* <h2 className="sectionTitle">Search results</h2> */}
+          <ul className="searchResultsList" aria-label="Search results">
             {movies.map(movie => {
               const isSelected = selectedMovies.includes(movie.id)
+              const year = (movie as any).release_date ? ` (${(movie as any).release_date.slice(0,4)})` : ''
               return (
                 <li
                   key={movie.id}
                   onClick={() => toggleSelect(movie.id)}
-                  className={`card ${isSelected ? 'cardSelected' : ''}`}
+                  className={`searchRow ${isSelected ? 'cardSelected' : ''}`}
                 >
                   {movie.poster_path ? (
                     <img
-                      className="poster"
-                      src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
+                      className="searchPosterSmall"
+                      src={`https://image.tmdb.org/t/p/w92${movie.poster_path}`}
                       alt={movie.title}
                     />
                   ) : (
-                    <div className="posterFallback">No poster</div>
+                    <div className="searchPosterSmall posterFallback">No poster</div>
                   )}
 
-                  <div className="movieTitle">{movie.title}</div>
-
-                  {isSelected && (
-                    <select
-                      className="ratingSelect"
-                      onClick={e => e.stopPropagation()}
-                      value={ratings[movie.id] ?? ''}
-                      onChange={e => handleRatingChange(movie.id, Number(e.target.value))}
-                      aria-label={`Rating for ${movie.title}`}
-                    >
-                      <option value="" disabled>
-                        Rate 1–10
-                      </option>
-                      {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                        <option key={num} value={num}>
-                          {num}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  <div className="movieMeta">
+                    <div className="movieTitle">{movie.title}{year}</div>
+                    {isSelected && (
+                      <div style={{ marginTop: 8 }}>
+                        <select
+                          className="ratingSelect"
+                          onClick={e => e.stopPropagation()}
+                          value={ratings[movie.id] ?? ''}
+                          onChange={e => handleRatingChange(movie.id, Number(e.target.value))}
+                          aria-label={`Rating for ${movie.title}`}
+                        >
+                          <option value="" disabled>
+                            Rate 1–10
+                          </option>
+                          {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                            <option key={num} value={num}>
+                              {num}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
                 </li>
               )
             })}
