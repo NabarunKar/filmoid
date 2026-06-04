@@ -168,8 +168,8 @@ export default function RecommendationsPage() {
 
       <div className="recsOverlay" aria-hidden="true" />
       <div className="recsInner">
-        <div className="hero">
-          <div>
+        <div className="hero" aria-label="Homepage hero">
+          <div className="heroCopy">
             <h1 className="title">Filmoid</h1>
             <p className="subtitle">Rate at least 5 movies, then get recommendations.</p>
           </div>
