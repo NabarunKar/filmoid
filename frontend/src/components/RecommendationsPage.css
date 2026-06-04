@@ -3,10 +3,10 @@
   isolation: isolate;
   width: 100%;
   min-height: 100vh;
-  padding: 3rem 1.5rem;
+  padding: clamp(1.5rem, 5vh, 3rem) 1.5rem 2rem;
   box-sizing: border-box;
 
-  /* center contents horizontally and vertically */
+  /* center contents horizontally and keep the whole block slightly above center */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,7 +59,13 @@
   position: relative;
   z-index: 2;
   max-width: 980px;
+  width: min(980px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-self: center;
+  height: calc(100vh - 4rem);
   margin: 0 auto;
+  transform: translateY(-2.5vh);
 }
 
 .hero {
@@ -103,6 +109,11 @@
   border-radius: 14px;
   background: rgba(24, 28, 20, 0.75);
   border: 1px solid #3C3D37;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .controls {
@@ -164,6 +175,11 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  margin-top: 0.75rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
 }
 
 .searchRow {
