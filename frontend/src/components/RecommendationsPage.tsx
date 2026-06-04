@@ -171,7 +171,7 @@ export default function RecommendationsPage() {
         <div className="hero" aria-label="Homepage hero">
           <div className="heroCopy">
             <h1 className="title">Filmoid</h1>
-            <p className="subtitle">Rate at least 5 movies, then get recommendations.</p>
+            <p className="subtitle">Let's see what we have got, rate at least 5 movies.</p>
           </div>
           <div className="stats" aria-label="Selection summary">
             <div className="pill">Rated: {ratedMovies.length} / 5</div>
