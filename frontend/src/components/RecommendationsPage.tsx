@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import Slider from 'rc-slider'
+import 'rc-slider/assets/index.css'
 
 import backgroundVideo from '../../../Resources/trimmed.mp4'
 import './RecommendationsPage.css'
@@ -84,6 +86,13 @@ export default function RecommendationsPage() {
 
   const handleRatingChange = (id: number, value: number) => {
     setRatings(r => ({ ...r, [id]: value }))
+  }
+
+  const getRatingIcon = (rating: number): string => {
+    if (rating <= 3) return '🤢'
+    if (rating <= 6) return '😃'
+    if (rating <= 8) return '❤️'
+    return '❤️‍🔥'
   }
 
   const ratedMovies = selectedMovies
@@ -259,22 +268,20 @@ export default function RecommendationsPage() {
                     <div className="movieTitle">{movie.title}{year}</div>
                     {isSelected && (
                       <div style={{ marginTop: 8 }}>
-                        <select
-                          className="ratingSelect"
-                          onClick={e => e.stopPropagation()}
-                          value={ratings[movie.id] ?? ''}
-                          onChange={e => handleRatingChange(movie.id, Number(e.target.value))}
-                          aria-label={`Rating for ${movie.title}`}
-                        >
-                          <option value="" disabled>
-                            Rate 1–10
-                          </option>
-                          {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                            <option key={num} value={num}>
-                              {num}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="slider-container" onClick={e => e.stopPropagation()}>
+                          <Slider
+                            min={0}
+                            max={10}
+                            step={1}
+                            value={ratings[movie.id] ?? 5}
+                            onChange={value => handleRatingChange(movie.id, value as number)}
+                            className="rating-slider"
+                          />
+                          <div className="rating-display">
+                            <span className="rating-icon">{getRatingIcon(ratings[movie.id] ?? 5)}</span>
+                            <span className="rating-value">{ratings[movie.id] ?? 5}</span>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
