@@ -1,31 +1,67 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Movie } from '../components/RecommendationsPage'
 import './ResultsPage.css'
 
 export default function ResultsPage() {
   const [recommendations, setRecommendations] = useState<Movie[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+
+  const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000'
 
   useEffect(() => {
-    const recsData = localStorage.getItem('recommendations')
-    if (recsData) {
+    const sessionId = searchParams.get('id')
+    if (!sessionId) {
+      setError('No recommendation session ID found in the URL.')
+      setLoading(false)
+      return
+    }
+
+    const fetchRecommendations = async () => {
+      setLoading(true)
+      setError(null)
       try {
-        const parsedRecs = JSON.parse(recsData) as Movie[]
-        setRecommendations(parsedRecs)
-        localStorage.removeItem('recommendations')
+        const res = await fetch(`${API_BASE_URL}/api/recommendations/${sessionId}`)
+        if (!res.ok) {
+          let message = `Request failed (${res.status})`
+          if (res.status === 404) {
+            message = 'This recommendation session has expired or is invalid.'
+          } else {
+            try {
+              const json = await res.json()
+              if (json?.detail) message = String(json.detail)
+            } catch {
+              // ignore
+            }
+          }
+          throw new Error(message)
+        }
+        const data = await res.json()
+        setRecommendations(data.recommendations || [])
       } catch (e) {
-        console.error('Error parsing recommendations from localStorage', e)
+        setError((e as Error).message)
+      } finally {
+        setLoading(false)
       }
     }
-  }, [])
+
+    fetchRecommendations()
+  }, [searchParams, API_BASE_URL])
 
   return (
     <div className="resultsPage">
       <div className="resultsInner">
         <h1>Your Recommendations</h1>
-        {recommendations.length > 0 ? (
+        {loading ? (
+          <p>Loading recommendations...</p>
+        ) : error ? (
+          <p className="errorText">{error}</p>
+        ) : recommendations.length > 0 ? (
           <ul className="resultsList">
             {recommendations.map(movie => {
-              const year = (movie as any).release_date ? ` (${(movie as any).release_date.slice(0, 4)})` : ''
+              const year = movie.release_date ? ` (${movie.release_date.slice(0, 4)})` : ''
               return (
                 <li key={movie.id} className="resultRow">
                   {movie.poster_path ? (
@@ -37,9 +73,14 @@ export default function ResultsPage() {
                   ) : (
                     <div className="resultPoster posterFallback">No poster</div>
                   )}
-                  <div className="resultTitle">
-                    {movie.title}
-                    {year}
+                  <div className="resultDetails">
+                    <div className="resultTitle">
+                      {movie.title}
+                      {year}
+                    </div>
+                    {typeof movie.score === 'number' && (
+                      <div className="resultScore">Score: {movie.score.toFixed(2)}</div>
+                    )}
                   </div>
                 </li>
               )

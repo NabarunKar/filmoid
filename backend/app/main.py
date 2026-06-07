@@ -7,6 +7,8 @@ from functools import lru_cache
 from pathlib import Path
 import re
 from typing import Dict, List, Optional, Tuple
+import uuid
+from datetime import datetime, timezone
 
 import requests
 from fastapi import FastAPI, HTTPException
@@ -29,9 +31,12 @@ class MovieOut(BaseModel):
     id: int
     title: str
     poster_path: Optional[str] = None
+    score: float
+    release_date: Optional[str] = None
 
 
 class RecommendResponse(BaseModel):
+    sessionId: str
     recommendations: List[MovieOut]
 
 
@@ -41,6 +46,18 @@ class ScoredMovie:
     score: float
     title: str
     poster_path: Optional[str]
+    release_date: Optional[str] = None
+
+
+@dataclass
+class SessionData:
+    recommendations: List[MovieOut]
+    timestamp: datetime
+
+
+# In-memory store for recommendation sessions.
+# In a real app, this would be a database or a distributed cache like Redis.
+_SESSIONS: Dict[str, SessionData] = {}
 
 
 app = FastAPI(title="Filmoid API", version="0.1.0")
@@ -283,7 +300,7 @@ def _tmdb_to_model_raw_iid(api_key: str, tmdb_id: int, trainset) -> Optional[str
     return None
 
 
-def _tmdb_search_movie(api_key: str, query: str, year: Optional[int] = None) -> Optional[MovieOut]:
+def _tmdb_search_movie(api_key: str, query: str, year: Optional[int] = None) -> Optional[ScoredMovie]:
     url = "https://api.themoviedb.org/3/search/movie"
     params: Dict[str, str] = {
         "query": query,
@@ -306,10 +323,14 @@ def _tmdb_search_movie(api_key: str, query: str, year: Optional[int] = None) -> 
 
     title = (m.get("title") or m.get("name") or "").strip() or str(tmdb_id)
     poster_path = m.get("poster_path")
-    return MovieOut(id=tmdb_id, title=title, poster_path=poster_path)
+    release_date = m.get("release_date")
+    # The score is not applicable here as it's a direct search result.
+    return ScoredMovie(
+        movie_id=tmdb_id, title=title, poster_path=poster_path, score=0.0, release_date=release_date
+    )
 
 
-def _slug_to_tmdb_movie(api_key: str, slug: str) -> Optional[MovieOut]:
+def _slug_to_tmdb_movie(api_key: str, slug: str) -> Optional[ScoredMovie]:
     s = slug.strip().lower()
     year: Optional[int] = None
     m = re.match(r"^(.*?)-(\d{4})$", s)
@@ -329,7 +350,14 @@ def _slug_to_tmdb_movie(api_key: str, slug: str) -> Optional[MovieOut]:
             return None
         title = (details.get("title") or details.get("name") or "").strip() or str(tmdb_id)
         poster_path = details.get("poster_path")
-        return MovieOut(id=tmdb_id, title=title, poster_path=poster_path)
+        release_date = details.get("release_date")
+        return ScoredMovie(
+            movie_id=tmdb_id,
+            title=title,
+            poster_path=poster_path,
+            score=0.0,
+            release_date=release_date,
+        )
 
     query = s.replace("-", " ").strip()
     if not query:
@@ -341,7 +369,7 @@ def _svd_recommendations(
     api_key: str,
     rated: List[Tuple[int, float]],
     top_n: int,
-) -> List[MovieOut]:
+) -> List[ScoredMovie]:
     """Generate recommendations from the saved Surprise SVD model.
 
     This performs a lightweight "fold-in" to compute a temporary user vector
@@ -457,64 +485,26 @@ def _svd_recommendations(
     b_u = float(x[0])
     p_u = x[1:]
 
-    # Score items (vectorized). If the model has a huge numeric-ID catalog,
-    # prefer reranking a TMDB candidate pool for speed.
+    # Score items (vectorized).
     n_items = int(qi.shape[0])
-    top_raw_items: List[object] = []
+    scores = (mu + b_u) + bi + (qi @ p_u)
+    if rated_inner_set:
+        scores[list(rated_inner_set)] = -np.inf
 
-    if numeric_items and n_items > 200_000:
-        # Candidate pool from TMDB (same as the current heuristic), then rerank by SVD.
-        candidates: Dict[int, float] = {}
-        rated_ids = {movie_id for movie_id, _ in rated}
-        for movie_id, _rating in rated:
-            url = f"https://api.themoviedb.org/3/movie/{movie_id}/recommendations"
-            payload = _tmdb_get(url, api_key, params={"page": "1"})
-            results = payload.get("results") or []
-            for m in results[:200]:
-                rec_id = _coerce_int(m.get("id"))
-                if rec_id is None or rec_id in rated_ids:
-                    continue
-                candidates[rec_id] = 0.0
-
-        if not candidates:
-            raise RuntimeError("No candidate items available to rerank")
-
-        scored: List[Tuple[int, float]] = []
-        for rec_id in candidates.keys():
-            inner = _try_inner_iid(trainset, rec_id)
-            if inner is None:
-                continue
-            est = mu + b_u + float(bi[inner]) + float(qi[inner] @ p_u)
-            scored.append((rec_id, est))
-
-        scored.sort(key=lambda t: t[1], reverse=True)
-        top_raw_items = [movie_id for movie_id, _ in scored[: max(top_n * 3, top_n)]]
-    else:
-        scores = (mu + b_u) + bi + (qi @ p_u)
-        if rated_inner_set:
-            scores[list(rated_inner_set)] = -np.inf
-
-        k = min(max(top_n * 3, top_n), n_items)
-        top_inner = np.argpartition(scores, -k)[-k:]
-        top_inner = top_inner[np.argsort(scores[top_inner])[::-1]]
-
-        for inner in top_inner:
-            top_raw_items.append(trainset.to_raw_iid(int(inner)))
-            if len(top_raw_items) >= k:
-                break
+    k = min(max(top_n * 3, top_n), n_items)
+    top_inner = np.argpartition(scores, -k)[-k:]
+    top_inner = top_inner[np.argsort(scores[top_inner])[::-1]]
 
     # Hydrate top-N.
-    movies: List[MovieOut] = []
+    movies: List[ScoredMovie] = []
     seen: set[int] = set()
 
     if numeric_items:
-        for raw in top_raw_items:
+        for inner in top_inner:
             if len(movies) >= top_n:
                 break
-            tmdb_id = _coerce_int(raw)
-            if tmdb_id is None:
-                continue
-            if tmdb_id in rated_tmdb_ids or tmdb_id in seen:
+            tmdb_id = _coerce_int(trainset.to_raw_iid(int(inner)))
+            if tmdb_id is None or tmdb_id in rated_tmdb_ids or tmdb_id in seen:
                 continue
             seen.add(tmdb_id)
             try:
@@ -523,20 +513,36 @@ def _svd_recommendations(
                 continue
             title = (details.get("title") or details.get("name") or "").strip() or str(tmdb_id)
             poster_path = details.get("poster_path")
-            movies.append(MovieOut(id=tmdb_id, title=title, poster_path=poster_path))
+            release_date = details.get("release_date")
+            movies.append(
+                ScoredMovie(
+                    movie_id=tmdb_id,
+                    title=title,
+                    poster_path=poster_path,
+                    score=scores[inner],
+                    release_date=release_date,
+                )
+            )
         return movies
 
-    # Slug-trained model: convert slugs to TMDB movies via TMDB search.
-    for slug in [str(s) for s in top_raw_items]:
+    # Slug-trained model: convert slugs to TMDB movies.
+    for inner in top_inner:
         if len(movies) >= top_n:
             break
+        slug = str(trainset.to_raw_iid(int(inner)))
         m = _slug_to_tmdb_movie(api_key, slug)
-        if not m:
+        if not m or m.movie_id in rated_tmdb_ids or m.movie_id in seen:
             continue
-        if m.id in rated_tmdb_ids or m.id in seen:
-            continue
-        seen.add(m.id)
-        movies.append(m)
+        seen.add(m.movie_id)
+        movies.append(
+            ScoredMovie(
+                movie_id=m.movie_id,
+                title=m.title,
+                poster_path=m.poster_path,
+                score=scores[inner],
+                release_date=m.release_date,
+            )
+        )
 
     return movies
 
@@ -545,7 +551,7 @@ def _blend_tmdb_recommendations(
     api_key: str,
     rated: List[Tuple[int, float]],
     top_n: int,
-) -> List[MovieOut]:
+) -> List[ScoredMovie]:
     """A local-dev recommender.
 
     This is NOT your Surprise SVD model yet.
@@ -569,6 +575,7 @@ def _blend_tmdb_recommendations(
 
             title = (m.get("title") or m.get("name") or "").strip() or f"{rec_id}"
             poster_path = m.get("poster_path")
+            release_date = m.get("release_date")
 
             # simple scoring: higher user rating & higher TMDB rank => higher score
             contribution = float(rating) * (1.0 / float(rank))
@@ -580,6 +587,7 @@ def _blend_tmdb_recommendations(
                     score=prev.score + contribution,
                     title=prev.title or title,
                     poster_path=prev.poster_path or poster_path,
+                    release_date=prev.release_date or release_date,
                 )
             else:
                 scores[rec_id] = ScoredMovie(
@@ -587,10 +595,10 @@ def _blend_tmdb_recommendations(
                     score=contribution,
                     title=title,
                     poster_path=poster_path,
+                    release_date=release_date,
                 )
 
-    ranked = sorted(scores.values(), key=lambda x: x.score, reverse=True)
-    return [MovieOut(id=m.movie_id, title=m.title, poster_path=m.poster_path) for m in ranked[:top_n]]
+    return sorted(scores.values(), key=lambda x: x.score, reverse=True)[:top_n]
 
 
 @app.post("/api/recommendations", response_model=RecommendResponse)
@@ -602,11 +610,11 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
 
     mode = (os.getenv("FILMOID_RECOMMENDER") or "auto").strip().lower()
 
+    recs: List[ScoredMovie] = []
     if mode in {"auto", "svd"}:
         try:
             recs = _svd_recommendations(req.tmdbApiKey, rated_pairs, req.topN)
             logger.info("Using SVD recommender (%d results)", len(recs))
-            return RecommendResponse(recommendations=recs)
         except Exception as e:
             logger.warning("SVD recommender unavailable; falling back (%s)", e)
             if mode == "svd":
@@ -620,7 +628,34 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
                     ),
                 )
 
-    # Fallback: TMDB blend heuristic.
-    recs = _blend_tmdb_recommendations(req.tmdbApiKey, rated_pairs, req.topN)
-    logger.info("Using TMDB-blend recommender (%d results)", len(recs))
-    return RecommendResponse(recommendations=recs)
+    if not recs:
+        # Fallback: TMDB blend heuristic.
+        recs = _blend_tmdb_recommendations(req.tmdbApiKey, rated_pairs, req.topN)
+        logger.info("Using TMDB-blend recommender (%d results)", len(recs))
+
+    movies_out = [
+        MovieOut(
+            id=m.movie_id,
+            title=m.title,
+            poster_path=m.poster_path,
+            score=m.score,
+            release_date=m.release_date,
+        )
+        for m in recs
+    ]
+
+    session_id = str(uuid.uuid4())
+    _SESSIONS[session_id] = SessionData(
+        recommendations=movies_out, timestamp=datetime.now(timezone.utc)
+    )
+
+    return RecommendResponse(sessionId=session_id, recommendations=movies_out)
+
+
+@app.get("/api/recommendations/{session_id}", response_model=RecommendResponse)
+def get_recommendations(session_id: str) -> RecommendResponse:
+    session_data = _SESSIONS.get(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return RecommendResponse(sessionId=session_id, recommendations=session_data.recommendations)
+

@@ -10,9 +10,11 @@ export type Movie = {
   title: string
   poster_path: string | null
   release_date?: string
+  score?: number
 }
 
 type RecommendationResponse = {
+  sessionId: string
   recommendations: Movie[]
 }
 
@@ -159,8 +161,7 @@ export default function RecommendationsPage() {
         return
       }
 
-      localStorage.setItem('recommendations', JSON.stringify(recs))
-      resultsTab.location.href = '/recommendations'
+      resultsTab.location.href = `/recommendations?id=${data.sessionId}`
     } catch (err) {
       setRecsError((err as Error).message)
       resultsTab.close()
