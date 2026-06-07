@@ -68,27 +68,26 @@ def _load_tmdb_slug_map() -> Tuple[Dict[int, str], Dict[str, int]]:
     tmdb_to_slug: Dict[int, str] = {}
     slug_to_tmdb: Dict[str, int] = {}
     try:
-        text = _TMDB_TO_SLUG_PATH.read_text(encoding="utf-8", errors="replace")
+        with _TMDB_TO_SLUG_PATH.open("r", encoding="utf-8", errors="replace") as f:
+            for row in f:
+                row = row.strip()
+                if not row or row.startswith("#"):
+                    continue
+                parts = [p.strip() for p in row.split(",", 1)]
+                if len(parts) != 2:
+                    continue
+                left, right = parts
+                if left.lower() in {"tmdb_id", "tmdbid", "tmdb"}:
+                    continue
+                tmdb_id = _coerce_int(left)
+                slug = (right or "").strip().strip("/").lower()
+                if tmdb_id is None or not slug:
+                    continue
+                tmdb_to_slug[tmdb_id] = slug
+                # Only set reverse if not already present.
+                slug_to_tmdb.setdefault(slug, tmdb_id)
     except Exception:
         return ({}, {})
-
-    for line in text.splitlines():
-        row = line.strip()
-        if not row or row.startswith("#"):
-            continue
-        parts = [p.strip() for p in row.split(",", 1)]
-        if len(parts) != 2:
-            continue
-        left, right = parts
-        if left.lower() in {"tmdb_id", "tmdbid", "tmdb"}:
-            continue
-        tmdb_id = _coerce_int(left)
-        slug = (right or "").strip().strip("/").lower()
-        if tmdb_id is None or not slug:
-            continue
-        tmdb_to_slug[tmdb_id] = slug
-        # Only set reverse if not already present.
-        slug_to_tmdb.setdefault(slug, tmdb_id)
 
     return (tmdb_to_slug, slug_to_tmdb)
 

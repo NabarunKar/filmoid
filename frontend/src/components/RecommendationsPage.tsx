@@ -5,10 +5,11 @@ import 'rc-slider/assets/index.css'
 import backgroundVideo from '../../../Resources/trimmed.mp4'
 import './RecommendationsPage.css'
 
-type Movie = {
+export type Movie = {
   id: number
   title: string
   poster_path: string | null
+  release_date?: string
 }
 
 type RecommendationResponse = {
@@ -24,7 +25,6 @@ export default function RecommendationsPage() {
 
   const [recsLoading, setRecsLoading] = useState(false)
   const [recsError, setRecsError] = useState<string | null>(null)
-  const [recommendations, setRecommendations] = useState<Movie[]>([])
 
   const TMDB_V3 = import.meta.env.VITE_TMDB_V3 as string
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000'
@@ -103,7 +103,6 @@ export default function RecommendationsPage() {
 
   const getRecommendations = async () => {
     setRecsError(null)
-    setRecommendations([])
 
     if (!TMDB_V3) {
       setRecsError('Missing TMDB API key (VITE_TMDB_V3).')
@@ -112,6 +111,12 @@ export default function RecommendationsPage() {
 
     if (!canGetRecs) {
       setRecsError('Please rate at least 5 movies first.')
+      return
+    }
+
+    const resultsTab = window.open('about:blank', '_blank')
+    if (!resultsTab) {
+      setRecsError('Could not open a new tab. Please disable your pop-up blocker.')
       return
     }
 
@@ -147,13 +152,18 @@ export default function RecommendationsPage() {
 
       const data = (await res.json()) as RecommendationResponse
       const recs = data.recommendations || []
-      setRecommendations(recs)
 
       if (recs.length === 0) {
         setRecsError('No recommendations were returned for those movies. Try rating different movies.')
+        resultsTab.close()
+        return
       }
+
+      localStorage.setItem('recommendations', JSON.stringify(recs))
+      resultsTab.location.href = '/recommendations'
     } catch (err) {
       setRecsError((err as Error).message)
+      resultsTab.close()
     } finally {
       setRecsLoading(false)
     }
@@ -217,28 +227,6 @@ export default function RecommendationsPage() {
             <div className="errorBox" role="alert">
               <strong>Error:</strong> {recsError}
             </div>
-          )}
-
-          {recommendations.length > 0 && (
-            <>
-              <h2 className="sectionTitle">Your recommendations</h2>
-              <ul className="grid" aria-label="Recommendations">
-                {recommendations.map(movie => (
-                  <li key={movie.id} className="card" style={{ cursor: 'default' }}>
-                    {movie.poster_path ? (
-                      <img
-                        className="poster"
-                        src={`https://image.tmdb.org/t/p/w342${movie.poster_path}`}
-                        alt={movie.title}
-                      />
-                    ) : (
-                      <div className="posterFallback">No poster</div>
-                    )}
-                    <div className="movieTitle">{movie.title}</div>
-                  </li>
-                ))}
-              </ul>
-            </>
           )}
 
           {loading && <div className="inlineNote">Loading search results…</div>}
