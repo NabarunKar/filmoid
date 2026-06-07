@@ -79,7 +79,9 @@ export default function ResultsPage() {
                       {year}
                     </div>
                     {typeof movie.score === 'number' && (
-                      <div className="resultScore">Score: {movie.score.toFixed(2)}</div>
+                      <div className="resultScore">
+                        Predicted Rating: {Math.min(10, movie.score).toFixed(1)} / 10
+                      </div>
                     )}
                   </div>
                 </li>
