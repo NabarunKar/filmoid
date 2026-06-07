@@ -29,6 +29,8 @@
   border-radius: 12px;
   background: rgba(31, 36, 26, 0.8);
   border: 1px solid #3C3D37;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
 .resultPoster {
@@ -38,6 +40,11 @@
   object-fit: cover;
   flex-shrink: 0;
   background: rgba(60, 61, 55, 0.92);
+}
+
+.resultRow:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
 }
 
 .posterFallback {

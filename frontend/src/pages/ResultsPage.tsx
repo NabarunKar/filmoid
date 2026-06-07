@@ -63,7 +63,16 @@ export default function ResultsPage() {
             {recommendations.map(movie => {
               const year = movie.release_date ? ` (${movie.release_date.slice(0, 4)})` : ''
               return (
-                <li key={movie.id} className="resultRow">
+                <li
+                  key={movie.id}
+                  className="resultRow"
+                  onClick={() => {
+                    if (movie.id) {
+                      const letterboxdUrl = `https://letterboxd.com/tmdb/${movie.id}`
+                      window.open(letterboxdUrl, '_blank', 'noopener,noreferrer')
+                    }
+                  }}
+                >
                   {movie.poster_path ? (
                     <img
                       className="resultPoster"
