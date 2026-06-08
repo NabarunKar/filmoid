@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Slider from 'rc-slider'
 import 'rc-slider/assets/index.css'
 
@@ -27,6 +27,8 @@ export default function RecommendationsPage() {
 
   const [recsLoading, setRecsLoading] = useState(false)
   const [recsError, setRecsError] = useState<string | null>(null)
+  const [loadingDots, setLoadingDots] = useState('')
+  const dotsIntervalRef = useRef<number | null>(null)
 
   const TMDB_V3 = import.meta.env.VITE_TMDB_V3 as string
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000'
@@ -116,13 +118,15 @@ export default function RecommendationsPage() {
       return
     }
 
-    const resultsTab = window.open('about:blank', '_blank')
-    if (!resultsTab) {
-      setRecsError('Could not open a new tab. Please disable your pop-up blocker.')
-      return
-    }
-
     setRecsLoading(true)
+
+    const dotsSequence = ['', '.', '..', '...']
+    let dotIndex = 0
+    dotsIntervalRef.current = window.setInterval(() => {
+      setLoadingDots(dotsSequence[dotIndex])
+      dotIndex = (dotIndex + 1) % dotsSequence.length
+    }, 400)
+
     try {
       const res = await fetch(`${API_BASE_URL}/api/recommendations`, {
         method: 'POST',
@@ -157,15 +161,22 @@ export default function RecommendationsPage() {
 
       if (recs.length === 0) {
         setRecsError('No recommendations were returned for those movies. Try rating different movies.')
-        resultsTab.close()
         return
       }
 
-      resultsTab.location.href = `/recommendations?id=${data.sessionId}`
+      const resultsTab = window.open('about:blank', '_blank')
+      if (resultsTab) {
+        resultsTab.location.href = `/recommendations?id=${data.sessionId}`
+      } else {
+        setRecsError('Could not open a new tab. Please disable your pop-up blocker.')
+      }
     } catch (err) {
       setRecsError((err as Error).message)
-      resultsTab.close()
     } finally {
+      if (dotsIntervalRef.current) {
+        clearInterval(dotsIntervalRef.current)
+        dotsIntervalRef.current = null
+      }
       setRecsLoading(false)
     }
   }
@@ -215,7 +226,8 @@ export default function RecommendationsPage() {
                 disabled={recsLoading}
                 onClick={getRecommendations}
               >
-                {recsLoading ? 'Getting recs…' : "I'm ready for my recs"}
+                {recsLoading && <div className="spinner" />}
+                {recsLoading ? `Preparing your recs${loadingDots}` : "I'm ready for my recs"}
               </button>
             ) : null}
           </div>
