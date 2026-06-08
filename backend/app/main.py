@@ -3,42 +3,30 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import os
+import subprocess
 from functools import lru_cache
 from pathlib import Path
 import re
 from typing import Dict, List, Optional, Tuple
 import uuid
-from datetime import datetime, timezone
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from . import crud, models, schemas
+from .database import SessionLocal, engine
 
-class RatingIn(BaseModel):
-    tmdbId: int = Field(..., ge=1)
-    rating: float = Field(..., ge=1, le=10)
+app = FastAPI(title="Filmoid API", version="0.1.0")
 
-
-class RecommendRequest(BaseModel):
-    tmdbApiKey: str = Field(..., min_length=5)
-    ratings: List[RatingIn] = Field(default_factory=list)
-    topN: int = Field(10, ge=1, le=50)
-
-
-class MovieOut(BaseModel):
-    id: int
-    title: str
-    poster_path: Optional[str] = None
-    score: float
-    release_date: Optional[str] = None
-
-
-class RecommendResponse(BaseModel):
-    sessionId: str
-    recommendations: List[MovieOut]
-
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @dataclass(frozen=True)
 class ScoredMovie:
@@ -48,24 +36,44 @@ class ScoredMovie:
     poster_path: Optional[str]
     release_date: Optional[str] = None
 
-
-@dataclass
-class SessionData:
-    recommendations: List[MovieOut]
-    timestamp: datetime
-
-
-# In-memory store for recommendation sessions.
-# In a real app, this would be a database or a distributed cache like Redis.
-_SESSIONS: Dict[str, SessionData] = {}
-
-
-app = FastAPI(title="Filmoid API", version="0.1.0")
+_MEMORY_PROBE_SVD_DONE = False
+_MEMORY_PROBE_TMDB_DONE = False
+_MEMORY_PROBE_FINAL_LOGGED = False
 
 # Use uvicorn's logger so messages reliably show up in the server console.
 logger = logging.getLogger("uvicorn.error")
 _SVD_MODEL_PATH = Path(__file__).resolve().parents[1] / "models" / "svd_model.pkl"
 _TMDB_TO_SLUG_PATH = Path(__file__).resolve().parents[1] / "models" / "tmdb_to_slug.csv"
+
+
+def _current_rss_mib() -> float:
+    try:
+        import psutil  # type: ignore
+
+        return psutil.Process(os.getpid()).memory_info().rss / (1024 * 1024)
+    except Exception:
+        try:
+            rss_kib = subprocess.check_output(
+                ["ps", "-o", "rss=", "-p", str(os.getpid())],
+                text=True,
+            ).strip()
+            return float(rss_kib) / 1024.0
+        except Exception:
+            return 0.0
+
+
+def _log_rss(stage: str) -> None:
+    logger.info("[MEMORY] %s: RSS=%.1f MiB", stage, _current_rss_mib())
+
+
+def _maybe_log_final_rss() -> None:
+    global _MEMORY_PROBE_FINAL_LOGGED
+
+    if _MEMORY_PROBE_FINAL_LOGGED:
+        return
+    if _MEMORY_PROBE_SVD_DONE and _MEMORY_PROBE_TMDB_DONE:
+        _MEMORY_PROBE_FINAL_LOGGED = True
+        _log_rss("Final RSS after initialization is complete")
 
 
 @lru_cache(maxsize=1)
@@ -79,32 +87,39 @@ def _load_tmdb_slug_map() -> Tuple[Dict[int, str], Dict[str, int]]:
       (tmdb_to_slug, slug_to_tmdb)
     """
 
-    if not _TMDB_TO_SLUG_PATH.exists():
-        return ({}, {})
+    global _MEMORY_PROBE_TMDB_DONE
+
+    _log_rss("RSS before loading TMDB slug mapping")
 
     tmdb_to_slug: Dict[int, str] = {}
     slug_to_tmdb: Dict[str, int] = {}
     try:
-        with _TMDB_TO_SLUG_PATH.open("r", encoding="utf-8", errors="replace") as f:
-            for row in f:
-                row = row.strip()
-                if not row or row.startswith("#"):
-                    continue
-                parts = [p.strip() for p in row.split(",", 1)]
-                if len(parts) != 2:
-                    continue
-                left, right = parts
-                if left.lower() in {"tmdb_id", "tmdbid", "tmdb"}:
-                    continue
-                tmdb_id = _coerce_int(left)
-                slug = (right or "").strip().strip("/").lower()
-                if tmdb_id is None or not slug:
-                    continue
-                tmdb_to_slug[tmdb_id] = slug
-                # Only set reverse if not already present.
-                slug_to_tmdb.setdefault(slug, tmdb_id)
+        if _TMDB_TO_SLUG_PATH.exists():
+            with _TMDB_TO_SLUG_PATH.open("r", encoding="utf-8", errors="replace") as f:
+                for row in f:
+                    row = row.strip()
+                    if not row or row.startswith("#"):
+                        continue
+                    parts = [p.strip() for p in row.split(",", 1)]
+                    if len(parts) != 2:
+                        continue
+                    left, right = parts
+                    if left.lower() in {"tmdb_id", "tmdbid", "tmdb"}:
+                        continue
+                    tmdb_id = _coerce_int(left)
+                    slug = (right or "").strip().strip("/").lower()
+                    if tmdb_id is None or not slug:
+                        continue
+                    tmdb_to_slug[tmdb_id] = slug
+                    # Only set reverse if not already present.
+                    slug_to_tmdb.setdefault(slug, tmdb_id)
     except Exception:
-        return ({}, {})
+        tmdb_to_slug = {}
+        slug_to_tmdb = {}
+
+    _MEMORY_PROBE_TMDB_DONE = True
+    _log_rss("RSS immediately after loading TMDB slug mapping")
+    _maybe_log_final_rss()
 
     return (tmdb_to_slug, slug_to_tmdb)
 
@@ -184,26 +199,37 @@ def _load_svd_algo():
     Returns the Surprise algo instance on success, else None.
     """
 
-    if not _SVD_MODEL_PATH.exists():
-        return None
+    global _MEMORY_PROBE_SVD_DONE
+
+    _log_rss("RSS before loading SVD model")
 
     try:
-        from surprise.dump import load as surprise_load  # type: ignore
-    except Exception:
-        return None
+        if not _SVD_MODEL_PATH.exists():
+            return None
 
-    try:
-        predictions, algo = surprise_load(str(_SVD_MODEL_PATH))
-        _ = predictions  # unused
-        return algo
-    except Exception:
-        # Some users may have serialized the algo via joblib/pickle directly.
         try:
-            import joblib  # type: ignore
-
-            return joblib.load(_SVD_MODEL_PATH)
+            from surprise.dump import load as surprise_load  # type: ignore
         except Exception:
             return None
+
+        try:
+            predictions, algo = surprise_load(str(_SVD_MODEL_PATH))
+            _ = predictions  # unused
+            return algo
+        except Exception:
+            # Some users may have serialized the algo via joblib/pickle directly.
+            try:
+                import joblib  # type: ignore
+
+                return joblib.load(_SVD_MODEL_PATH)
+            except Exception:
+                return None
+    except Exception:
+        return None
+    finally:
+        _MEMORY_PROBE_SVD_DONE = True
+        _log_rss("RSS immediately after loading SVD model")
+        _maybe_log_final_rss()
 
 
 def _try_inner_iid(trainset, raw_iid: object) -> Optional[int]:
@@ -601,8 +627,8 @@ def _blend_tmdb_recommendations(
     return sorted(scores.values(), key=lambda x: x.score, reverse=True)[:top_n]
 
 
-@app.post("/api/recommendations", response_model=RecommendResponse)
-def recommend(req: RecommendRequest) -> RecommendResponse:
+@app.post("/api/recommendations", response_model=schemas.RecommendResponse)
+def recommend(req: schemas.RecommendRequest, db: Session = Depends(get_db)) -> schemas.RecommendResponse:
     if len(req.ratings) < 5:
         raise HTTPException(status_code=400, detail="Need at least 5 rated movies")
 
@@ -634,7 +660,7 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
         logger.info("Using TMDB-blend recommender (%d results)", len(recs))
 
     movies_out = [
-        MovieOut(
+        schemas.MovieOut(
             id=m.movie_id,
             title=m.title,
             poster_path=m.poster_path,
@@ -644,18 +670,18 @@ def recommend(req: RecommendRequest) -> RecommendResponse:
         for m in recs
     ]
 
-    session_id = str(uuid.uuid4())
-    _SESSIONS[session_id] = SessionData(
-        recommendations=movies_out, timestamp=datetime.now(timezone.utc)
-    )
+    session_id = uuid.uuid4()
+    crud.create_recommendation_session(db, session_id=session_id, recommendations=movies_out)
 
-    return RecommendResponse(sessionId=session_id, recommendations=movies_out)
+    return schemas.RecommendResponse(sessionId=str(session_id), recommendations=movies_out)
 
 
-@app.get("/api/recommendations/{session_id}", response_model=RecommendResponse)
-def get_recommendations(session_id: str) -> RecommendResponse:
-    session_data = _SESSIONS.get(session_id)
+@app.get("/api/recommendations/{session_id}", response_model=schemas.RecommendResponse)
+def get_recommendations(session_id: uuid.UUID, db: Session = Depends(get_db)) -> schemas.RecommendResponse:
+    session_data = crud.get_recommendation_session(db, session_id=session_id)
     if not session_data:
         raise HTTPException(status_code=404, detail="Session not found")
-    return RecommendResponse(sessionId=session_id, recommendations=session_data.recommendations)
+    
+    # The recommendations from the DB are a list of dicts, which Pydantic can use directly.
+    return schemas.RecommendResponse(sessionId=str(session_id), recommendations=session_data.recommendations)
 
