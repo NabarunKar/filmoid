@@ -40,7 +40,11 @@ export default function SignupPage() {
       <div className="auth-form-container">
         <h2>Signup</h2>
         <form onSubmit={handleSubmit}>
-          {error && <p className="auth-error">{error}</p>}
+          {error && (
+            <div className="auth-error" role="alert">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
           <div>
             <label>Username</label>
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />

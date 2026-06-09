@@ -60,7 +60,11 @@
 }
 
 .auth-error {
-    color: #ff8a80;
+    background-color: #2E4636; /* Green background */
+    color: #C2F0C2; /* Light green text */
     text-align: center;
     margin-bottom: 1rem;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid #4A7856;
 }

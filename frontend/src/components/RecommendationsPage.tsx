@@ -191,7 +191,7 @@ export default function RecommendationsPage() {
           <p>Loading...</p>
         ) : isAuthenticated ? (
           <>
-            <span>Welcome, {user?.username}</span>
+            <span>Welcome, {user?.username || user?.email}</span>
             <span className="auth-separator">|</span>
             <button onClick={logout} className="auth-button-link">Logout</button>
           </>

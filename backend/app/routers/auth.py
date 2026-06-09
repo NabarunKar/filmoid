@@ -42,12 +42,16 @@ def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestF
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
+    
+    # Cookie is properly configured here to be accessible across the domain
     response.set_cookie(
         key=COOKIE_NAME,
         value=access_token,
         httponly=True,
         samesite="lax",
-        secure=False, # Set to True in production with HTTPS
+        secure=False,  # Set to True in production with HTTPS
+        path="/",
+        max_age=int(access_token_expires.total_seconds()),
     )
     return {"message": "Login successful"}
 

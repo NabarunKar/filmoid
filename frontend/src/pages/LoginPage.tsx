@@ -26,6 +26,7 @@ export default function LoginPage() {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
+        credentials: 'include',
         body: formData,
       });
 
@@ -46,7 +47,11 @@ export default function LoginPage() {
       <div className="auth-form-container">
         <h2>Login</h2>
         <form onSubmit={handleSubmit}>
-          {error && <p className="auth-error">{error}</p>}
+          {error && (
+            <div className="auth-error" role="alert">
+              <strong>Error:</strong> {error}
+            </div>
+          )}
           <div>
             <label>Username or Email</label>
             <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} required />
