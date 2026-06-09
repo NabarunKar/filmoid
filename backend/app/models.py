@@ -1,6 +1,7 @@
 import uuid
 from sqlalchemy import Column, DateTime, JSON, String
-from sqlalchemy.dialects.postgresql import UUID, CIText
+from sqlalchemy.dialects.postgresql import UUID
+from .custom_types import CIText
 from sqlalchemy.sql import func
 from .database import Base
 

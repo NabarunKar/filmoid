@@ -14,11 +14,35 @@ import requests
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from . import crud, models, schemas
 from .database import SessionLocal, engine
+from .routers import auth, users
 
 app = FastAPI(title="Filmoid API", version="0.1.0")
+
+@app.on_event("startup")
+def on_startup():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS citext"))
+            conn.commit()
+        models.Base.metadata.create_all(bind=engine)
+    except Exception as e:
+        logger.error(f"Database setup failed: {e}")
+
+# Local dev: allow the Vite dev server to call this API.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/users", tags=["users"])
 
 # Dependency
 def get_db():
@@ -126,7 +150,7 @@ def _load_tmdb_slug_map() -> Tuple[Dict[int, str], Dict[str, int]]:
 # Local dev: allow the Vite dev server to call this API.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

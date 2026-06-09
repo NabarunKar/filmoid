@@ -4,6 +4,8 @@ import 'rc-slider/assets/index.css'
 
 import backgroundVideo from '../../../Resources/trimmed.mp4'
 import './RecommendationsPage.css'
+import { useAuth } from '../auth/useAuth';
+import { Link } from 'react-router-dom';
 
 export type Movie = {
   id: number
@@ -19,6 +21,7 @@ type RecommendationResponse = {
 }
 
 export default function RecommendationsPage() {
+  const { isAuthenticated, user, logout, isLoading } = useAuth();
   const [query, setQuery] = useState('')
   const [movies, setMovies] = useState<Movie[]>([])
   const [loading, setLoading] = useState(false)
@@ -183,6 +186,23 @@ export default function RecommendationsPage() {
 
   return (
     <div className="recsPage">
+      <div className="auth-controls">
+        {isLoading ? (
+          <p>Loading...</p>
+        ) : isAuthenticated ? (
+          <>
+            <span>Welcome, {user?.username}</span>
+            <span className="auth-separator">|</span>
+            <button onClick={logout} className="auth-button-link">Logout</button>
+          </>
+        ) : (
+          <>
+            <Link to="/login">Login</Link>
+            <span className="auth-separator">|</span>
+            <Link to="/signup">Signup</Link>
+          </>
+        )}
+      </div>
       <video
         className="recsBgVideo recsBgVideoActive"
         autoPlay
