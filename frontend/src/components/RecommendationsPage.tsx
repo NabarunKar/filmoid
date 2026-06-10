@@ -20,6 +20,18 @@ type RecommendationResponse = {
   recommendations: Movie[]
 }
 
+type UserRating = {
+  id: string
+  user_id: string
+  tmdb_id: number
+  movie_title: string
+  poster_path: string | null
+  release_date: string | null
+  rating: number
+  created_at: string
+  updated_at: string
+}
+
 export default function RecommendationsPage() {
   const { isAuthenticated, user, logout, isLoading } = useAuth();
   const [query, setQuery] = useState('')
@@ -27,6 +39,7 @@ export default function RecommendationsPage() {
   const [loading, setLoading] = useState(false)
   const [selectedMovies, setSelectedMovies] = useState<number[]>([])
   const [ratings, setRatings] = useState<Record<number, number>>({})
+  const [persistedRatings, setPersistedRatings] = useState<UserRating[]>([])
 
   const [recsLoading, setRecsLoading] = useState(false)
   const [recsError, setRecsError] = useState<string | null>(null)
@@ -35,6 +48,37 @@ export default function RecommendationsPage() {
 
   const TMDB_V3 = import.meta.env.VITE_TMDB_V3 as string
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000'
+
+  // Load latest persisted ratings after login so they count immediately toward rec generation.
+  useEffect(() => {
+    const loadRatings = async () => {
+      if (!isAuthenticated) {
+        setPersistedRatings([])
+        return
+      }
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/users/me/ratings`, {
+          credentials: 'include',
+          headers: { 'content-type': 'application/json' },
+        })
+        if (!res.ok) {
+          setPersistedRatings([])
+          return
+        }
+        const data = await res.json()
+        const rows: UserRating[] = data?.ratings || []
+        setPersistedRatings(rows)
+
+        // Populate state used by existing recommendation workflow.
+        setSelectedMovies(rows.map(r => r.tmdb_id))
+        setRatings(Object.fromEntries(rows.map(r => [r.tmdb_id, r.rating])))
+      } catch {
+        setPersistedRatings([])
+      }
+    }
+
+    loadRatings()
+  }, [isAuthenticated, API_BASE_URL])
 
   useEffect(() => {
     if (!query.trim()) {
@@ -95,6 +139,34 @@ export default function RecommendationsPage() {
     setRatings(r => ({ ...r, [id]: value }))
   }
 
+  const persistRatingIfAuthed = async (movie: Movie, value: number) => {
+    if (!isAuthenticated) return
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/me/ratings`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tmdb_id: movie.id,
+          movie_title: movie.title,
+          poster_path: movie.poster_path,
+          release_date: movie.release_date || null,
+          rating: value,
+        }),
+      })
+      if (!res.ok) return
+
+      // Keep the sidebar list fresh and newest-first (updated_at desc)
+      const saved = (await res.json()) as UserRating
+      setPersistedRatings(prev => {
+        const filtered = prev.filter(r => r.tmdb_id !== saved.tmdb_id)
+        return [saved, ...filtered].slice(0, 20)
+      })
+    } catch {
+      // ignore
+    }
+  }
+
   const getRatingIcon = (rating: number): string => {
     if (rating <= 3) return '🤢'
     if (rating <= 6) return '😃'
@@ -133,6 +205,7 @@ export default function RecommendationsPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/recommendations`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           tmdbApiKey: TMDB_V3,
@@ -230,6 +303,31 @@ export default function RecommendationsPage() {
         </div>
 
         <div className="panel">
+          {isAuthenticated && persistedRatings.length > 0 && (
+            <div className="inlineNote" aria-label="Previously Rated Movies">
+              <strong>Previously Rated Movies</strong>
+              <div style={{ marginTop: 8 }}>
+                {persistedRatings.slice(0, 20).map(r => (
+                  <div key={r.tmdb_id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                    {r.poster_path ? (
+                      <img
+                        src={`https://image.tmdb.org/t/p/w92${r.poster_path}`}
+                        alt={r.movie_title}
+                        style={{ width: 40, borderRadius: 6 }}
+                      />
+                    ) : (
+                      <div style={{ width: 40 }} />
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 600 }}>{r.movie_title}</div>
+                      <div style={{ opacity: 0.8 }}>Rating: {r.rating.toFixed(1)} / 10</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="controls">
             <input
               className="textInput"
@@ -295,7 +393,11 @@ export default function RecommendationsPage() {
                             max={10}
                             step={1}
                             value={ratings[movie.id] ?? 5}
-                            onChange={value => handleRatingChange(movie.id, value as number)}
+                            onChange={value => {
+                              const v = value as number
+                              handleRatingChange(movie.id, v)
+                              void persistRatingIfAuthed(movie, v)
+                            }}
                             className="rating-slider"
                           />
                           <div className="rating-display">

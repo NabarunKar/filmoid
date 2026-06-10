@@ -48,3 +48,41 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     username: str | None = None
+
+
+class RecommendationSessionSummary(BaseModel):
+    session_id: uuid.UUID
+    created_at: str
+    recommendation_count: int
+    preview_titles: List[str] = Field(default_factory=list, max_length=3)
+
+
+class RecommendationSessionSummaryList(BaseModel):
+    sessions: List[RecommendationSessionSummary]
+
+
+class UserRatingIn(BaseModel):
+    tmdb_id: int = Field(..., ge=1)
+    movie_title: str = Field(..., min_length=1)
+    poster_path: Optional[str] = None
+    release_date: Optional[str] = None
+    rating: float = Field(..., ge=1, le=10)
+
+
+class UserRatingOut(BaseModel):
+    id: uuid.UUID
+    user_id: uuid.UUID
+    tmdb_id: int
+    movie_title: str
+    poster_path: Optional[str] = None
+    release_date: Optional[str] = None
+    rating: float
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class UserRatingList(BaseModel):
+    ratings: List[UserRatingOut]

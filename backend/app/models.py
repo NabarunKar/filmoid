@@ -1,9 +1,10 @@
 import uuid
-from sqlalchemy import Column, DateTime, JSON, String
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.dialects.postgresql import UUID
 from .custom_types import CIText
 from sqlalchemy.sql import func
 from .database import Base
+from sqlalchemy.orm import relationship
 
 class User(Base):
     __tablename__ = "users"
@@ -19,6 +20,28 @@ class RecommendationSession(Base):
     __tablename__ = "recommendation_sessions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     recommendations = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    user = relationship("User", backref="recommendation_sessions")
+
+
+class UserRating(Base):
+    __tablename__ = "user_ratings"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    tmdb_id = Column(Integer, nullable=False)
+
+    # Lightweight metadata snapshot for rendering without TMDB lookups.
+    movie_title = Column(String, nullable=False)
+    poster_path = Column(String, nullable=True)
+    release_date = Column(String, nullable=True)
+
+    rating = Column(Float, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", backref="ratings")

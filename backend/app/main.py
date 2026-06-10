@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 import uuid
 
 import requests
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -19,6 +19,7 @@ from sqlalchemy import text
 from . import crud, models, schemas
 from .database import SessionLocal, engine
 from .routers import auth, users
+from .auth import get_current_user
 
 app = FastAPI(title="Filmoid API", version="0.1.0")
 
@@ -652,7 +653,11 @@ def _blend_tmdb_recommendations(
 
 
 @app.post("/api/recommendations", response_model=schemas.RecommendResponse)
-def recommend(req: schemas.RecommendRequest, db: Session = Depends(get_db)) -> schemas.RecommendResponse:
+def recommend(
+    req: schemas.RecommendRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> schemas.RecommendResponse:
     if len(req.ratings) < 5:
         raise HTTPException(status_code=400, detail="Need at least 5 rated movies")
 
@@ -695,7 +700,19 @@ def recommend(req: schemas.RecommendRequest, db: Session = Depends(get_db)) -> s
     ]
 
     session_id = uuid.uuid4()
-    crud.create_recommendation_session(db, session_id=session_id, recommendations=movies_out)
+    current_user = None
+    try:
+        current_user = get_current_user(request, db)
+    except HTTPException:
+        # If a client sends an invalid/expired cookie, treat as anonymous for this public endpoint.
+        current_user = None
+
+    crud.create_recommendation_session(
+        db,
+        session_id=session_id,
+        recommendations=movies_out,
+        user_id=(current_user.id if current_user else None),
+    )
 
     return schemas.RecommendResponse(sessionId=str(session_id), recommendations=movies_out)
 
