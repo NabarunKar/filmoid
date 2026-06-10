@@ -3,12 +3,14 @@ import RecommendationsPage from './components/RecommendationsPage'
 import ResultsPage from './pages/ResultsPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
+import RatingsPage from './pages/RatingsPage'
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<RecommendationsPage />} />
       <Route path="/recommendations" element={<ResultsPage />} />
+      <Route path="/ratings" element={<RatingsPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
     </Routes>

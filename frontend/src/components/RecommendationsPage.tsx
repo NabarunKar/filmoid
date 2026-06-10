@@ -180,6 +180,11 @@ export default function RecommendationsPage() {
 
   const canGetRecs = ratedMovies.length >= 5
 
+  const openRatingsTab = () => {
+    const tab = window.open('about:blank', '_blank')
+    if (tab) tab.location.href = '/ratings'
+  }
+
   const getRecommendations = async () => {
     setRecsError(null)
 
@@ -298,36 +303,20 @@ export default function RecommendationsPage() {
             <p className="subtitle">Let's see what we have got, rate at least 5 movies.</p>
           </div>
           <div className="stats" aria-label="Selection summary">
-            <div className="pill">Rated: {ratedMovies.length} / 5</div>
+            <button
+              type="button"
+              className="pill"
+              onClick={openRatingsTab}
+              disabled={!isAuthenticated}
+              title={isAuthenticated ? 'Open your saved ratings' : 'Login to view saved ratings'}
+              style={{ cursor: isAuthenticated ? 'pointer' : 'not-allowed' }}
+            >
+              Rated: {ratedMovies.length} / 5
+            </button>
           </div>
         </div>
 
         <div className="panel">
-          {isAuthenticated && persistedRatings.length > 0 && (
-            <div className="inlineNote" aria-label="Previously Rated Movies">
-              <strong>Previously Rated Movies</strong>
-              <div style={{ marginTop: 8 }}>
-                {persistedRatings.slice(0, 20).map(r => (
-                  <div key={r.tmdb_id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    {r.poster_path ? (
-                      <img
-                        src={`https://image.tmdb.org/t/p/w92${r.poster_path}`}
-                        alt={r.movie_title}
-                        style={{ width: 40, borderRadius: 6 }}
-                      />
-                    ) : (
-                      <div style={{ width: 40 }} />
-                    )}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>{r.movie_title}</div>
-                      <div style={{ opacity: 0.8 }}>Rating: {r.rating.toFixed(1)} / 10</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           <div className="controls">
             <input
               className="textInput"
