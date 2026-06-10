@@ -46,14 +46,29 @@ export default function RecommendationsPage() {
   const [loadingDots, setLoadingDots] = useState('')
   const dotsIntervalRef = useRef<number | null>(null)
 
+  // Debounced persistence (per-movie) to avoid spamming the backend while dragging.
+  const persistTimersRef = useRef<Record<number, number>>({})
+
   const TMDB_V3 = import.meta.env.VITE_TMDB_V3 as string
   const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string) || 'http://localhost:8000'
+
+  const clearUserRatingState = () => {
+    setPersistedRatings([])
+    setSelectedMovies([])
+    setRatings({})
+  }
+
+  // On logout, immediately clear any user-specific rating state to avoid stale UI.
+  useEffect(() => {
+    if (!isAuthenticated) clearUserRatingState()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
 
   // Load latest persisted ratings after login so they count immediately toward rec generation.
   useEffect(() => {
     const loadRatings = async () => {
       if (!isAuthenticated) {
-        setPersistedRatings([])
+        clearUserRatingState()
         return
       }
       try {
@@ -62,7 +77,7 @@ export default function RecommendationsPage() {
           headers: { 'content-type': 'application/json' },
         })
         if (!res.ok) {
-          setPersistedRatings([])
+          clearUserRatingState()
           return
         }
         const data = await res.json()
@@ -73,7 +88,7 @@ export default function RecommendationsPage() {
         setSelectedMovies(rows.map(r => r.tmdb_id))
         setRatings(Object.fromEntries(rows.map(r => [r.tmdb_id, r.rating])))
       } catch {
-        setPersistedRatings([])
+        clearUserRatingState()
       }
     }
 
@@ -166,6 +181,27 @@ export default function RecommendationsPage() {
       // ignore
     }
   }
+
+  const schedulePersistRatingIfAuthed = (movie: Movie, value: number) => {
+    if (!isAuthenticated) return
+
+    const existing = persistTimersRef.current[movie.id]
+    if (existing) window.clearTimeout(existing)
+
+    persistTimersRef.current[movie.id] = window.setTimeout(() => {
+      void persistRatingIfAuthed(movie, value)
+      delete persistTimersRef.current[movie.id]
+    }, 500)
+  }
+
+  // Cleanup any pending timers on unmount.
+  useEffect(() => {
+    return () => {
+      const timers = persistTimersRef.current
+      Object.values(timers).forEach(t => window.clearTimeout(t))
+      persistTimersRef.current = {}
+    }
+  }, [])
 
   const getRatingIcon = (rating: number): string => {
     if (rating <= 3) return '🤢'
@@ -311,7 +347,7 @@ export default function RecommendationsPage() {
               title={isAuthenticated ? 'Open your saved ratings' : 'Login to view saved ratings'}
               style={{ cursor: isAuthenticated ? 'pointer' : 'not-allowed' }}
             >
-              Rated: {ratedMovies.length} / 5
+              My Ratings ({isAuthenticated ? ratedMovies.length : 0})
             </button>
           </div>
         </div>
@@ -385,7 +421,7 @@ export default function RecommendationsPage() {
                             onChange={value => {
                               const v = value as number
                               handleRatingChange(movie.id, v)
-                              void persistRatingIfAuthed(movie, v)
+                              schedulePersistRatingIfAuthed(movie, v)
                             }}
                             className="rating-slider"
                           />

@@ -702,9 +702,16 @@ def recommend(
     session_id = uuid.uuid4()
     current_user = None
     try:
-        current_user = get_current_user(request, db)
+        # get_current_user is async; this endpoint is sync.
+        # Run it in its own event loop to avoid changing the route contract.
+        import asyncio
+
+        current_user = asyncio.run(get_current_user(request, db))
     except HTTPException:
         # If a client sends an invalid/expired cookie, treat as anonymous for this public endpoint.
+        current_user = None
+    except Exception:
+        # Any unexpected auth errors should not break this public endpoint.
         current_user = None
 
     crud.create_recommendation_session(
