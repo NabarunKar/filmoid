@@ -206,6 +206,32 @@
   border-radius: 10px;
   background: rgba(31, 36, 26, 0.9);
   border: 2px solid transparent;
+  position: relative;
+}
+
+.deleteRatingButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(204, 54, 54, 0.9);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.deleteRatingButton:hover {
+  background: rgba(229, 57, 57, 0.95);
+}
+
+.deleteRatingButton:active {
+  transform: translateY(1px);
 }
 
 .searchPosterSmall {

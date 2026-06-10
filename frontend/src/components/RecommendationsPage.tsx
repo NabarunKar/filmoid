@@ -6,6 +6,7 @@ import backgroundVideo from '../../../Resources/trimmed.mp4'
 import './RecommendationsPage.css'
 import { useAuth } from '../auth/useAuth';
 import { Link } from 'react-router-dom';
+import { Trash2 } from 'lucide-react'
 
 export type Movie = {
   id: number
@@ -141,9 +142,18 @@ export default function RecommendationsPage() {
   }, [query, TMDB_V3])
 
   const toggleSelect = (id: number) => {
+    // Selection is separate from persistence.
+    // If a movie already has a persisted rating, clicking the tile should NOT "unrate" it.
     setSelectedMovies(prev => {
+      const isPersisted = persistedRatings.some(r => r.tmdb_id === id)
+      if (isPersisted) return prev
+
       if (prev.includes(id)) {
-        setRatings(r => { const copy = { ...r }; delete copy[id]; return copy })
+        setRatings(r => {
+          const copy = { ...r }
+          delete copy[id]
+          return copy
+        })
         return prev.filter(x => x !== id)
       }
       return [...prev, id]
@@ -182,6 +192,42 @@ export default function RecommendationsPage() {
     }
   }
 
+  const deletePersistedRating = async (tmdbId: number, title: string) => {
+    if (!isAuthenticated) return
+
+    const ok = window.confirm(`Remove your rating for ${title}?`)
+    if (!ok) return
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/me/ratings/${tmdbId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        let message = `Delete failed (${res.status})`
+        try {
+          const json = await res.json()
+          if (json?.detail) message = String(json.detail)
+        } catch {
+          // ignore
+        }
+        throw new Error(message)
+      }
+
+      // Immediately reflect deletion everywhere in local state.
+      setPersistedRatings(prev => prev.filter(r => r.tmdb_id !== tmdbId))
+      setSelectedMovies(prev => prev.filter(id => id !== tmdbId))
+      setRatings(prev => {
+        const copy = { ...prev }
+        delete copy[tmdbId]
+        return copy
+      })
+    } catch (e) {
+      // Keep it simple for now; future: toast.
+      setRecsError((e as Error).message)
+    }
+  }
+
   const schedulePersistRatingIfAuthed = (movie: Movie, value: number) => {
     if (!isAuthenticated) return
 
@@ -213,6 +259,10 @@ export default function RecommendationsPage() {
   const ratedMovies = selectedMovies
     .map(id => ({ id, rating: ratings[id] }))
     .filter(x => typeof x.rating === 'number' && !Number.isNaN(x.rating))
+
+  // Logged-in users: show count from persisted ratings (what they actually have saved).
+  // Logged-out users: show count from local in-session ratings.
+  const myRatingsCount = isAuthenticated ? persistedRatings.length : ratedMovies.length
 
   const canGetRecs = ratedMovies.length >= 5
 
@@ -343,11 +393,14 @@ export default function RecommendationsPage() {
               type="button"
               className="pill"
               onClick={openRatingsTab}
-              disabled={!isAuthenticated}
-              title={isAuthenticated ? 'Open your saved ratings' : 'Login to view saved ratings'}
-              style={{ cursor: isAuthenticated ? 'pointer' : 'not-allowed' }}
+              title={
+                isAuthenticated
+                  ? 'Open your saved ratings'
+                  : 'Open your in-session ratings (not saved)'
+              }
+              style={{ cursor: 'pointer' }}
             >
-              My Ratings ({isAuthenticated ? ratedMovies.length : 0})
+              My Ratings ({myRatingsCount})
             </button>
           </div>
         </div>
@@ -391,6 +444,8 @@ export default function RecommendationsPage() {
           <ul className="searchResultsList" aria-label="Search results">
             {movies.map(movie => {
               const isSelected = selectedMovies.includes(movie.id)
+              const persisted = persistedRatings.find(r => r.tmdb_id === movie.id)
+              const hasPersistedRating = Boolean(persisted)
               const year = (movie as any).release_date ? ` (${(movie as any).release_date.slice(0,4)})` : ''
               return (
                 <li
@@ -398,6 +453,19 @@ export default function RecommendationsPage() {
                   onClick={() => toggleSelect(movie.id)}
                   className={`searchRow ${isSelected ? 'cardSelected' : ''}`}
                 >
+                  {hasPersistedRating && (
+                    <button
+                      type="button"
+                      className="deleteRatingButton"
+                      title="Delete saved rating"
+                      onClick={e => {
+                        e.stopPropagation()
+                        void deletePersistedRating(movie.id, movie.title)
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                   {movie.poster_path ? (
                     <img
                       className="searchPosterSmall"
@@ -417,7 +485,7 @@ export default function RecommendationsPage() {
                             min={0}
                             max={10}
                             step={1}
-                            value={ratings[movie.id] ?? 5}
+                            value={(hasPersistedRating ? persisted?.rating : ratings[movie.id]) ?? 5}
                             onChange={value => {
                               const v = value as number
                               handleRatingChange(movie.id, v)
@@ -426,8 +494,8 @@ export default function RecommendationsPage() {
                             className="rating-slider"
                           />
                           <div className="rating-display">
-                            <span className="rating-icon">{getRatingIcon(ratings[movie.id] ?? 5)}</span>
-                            <span className="rating-value">{ratings[movie.id] ?? 5}</span>
+                            <span className="rating-icon">{getRatingIcon(((hasPersistedRating ? persisted?.rating : ratings[movie.id]) ?? 5) as number)}</span>
+                            <span className="rating-value">{(hasPersistedRating ? persisted?.rating : ratings[movie.id]) ?? 5}</span>
                           </div>
                         </div>
                       </div>

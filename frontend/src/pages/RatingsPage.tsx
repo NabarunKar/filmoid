@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import './ResultsPage.css'
+import { Trash2 } from 'lucide-react'
 
 type UserRating = {
   id: string
@@ -67,6 +68,34 @@ export default function RatingsPage() {
     load()
   }, [API_BASE_URL, isAuthenticated])
 
+  const deleteRating = async (tmdbId: number, title: string) => {
+    const ok = window.confirm(`Remove your rating for ${title}?`)
+    if (!ok) return
+
+    setError(null)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/me/ratings/${tmdbId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+
+      if (!res.ok) {
+        let message = `Delete failed (${res.status})`
+        try {
+          const json = await res.json()
+          if (json?.detail) message = String(json.detail)
+        } catch {
+          // ignore
+        }
+        throw new Error(message)
+      }
+
+      setRatings(prev => prev.filter(r => r.tmdb_id !== tmdbId))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   return (
     <div className="resultsPage">
       <div className="resultsInner">
@@ -90,6 +119,17 @@ export default function RatingsPage() {
                     }
                   }}
                 >
+                  <button
+                    type="button"
+                    className="resultDeleteButton"
+                    title="Delete saved rating"
+                    onClick={e => {
+                      e.stopPropagation()
+                      void deleteRating(r.tmdb_id, r.movie_title)
+                    }}
+                  >
+                    <Trash2 size={18} />
+                  </button>
                   {r.poster_path ? (
                     <img
                       className="resultPoster"
