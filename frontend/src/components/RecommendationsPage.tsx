@@ -447,6 +447,7 @@ export default function RecommendationsPage() {
               const persisted = persistedRatings.find(r => r.tmdb_id === movie.id)
               const hasPersistedRating = Boolean(persisted)
               const year = (movie as any).release_date ? ` (${(movie as any).release_date.slice(0,4)})` : ''
+              const sliderValue = (ratings[movie.id] ?? persisted?.rating ?? 5) as number
               return (
                 <li
                   key={movie.id}
@@ -485,7 +486,7 @@ export default function RecommendationsPage() {
                             min={0}
                             max={10}
                             step={1}
-                            value={(hasPersistedRating ? persisted?.rating : ratings[movie.id]) ?? 5}
+                            value={sliderValue}
                             onChange={value => {
                               const v = value as number
                               handleRatingChange(movie.id, v)
@@ -494,8 +495,8 @@ export default function RecommendationsPage() {
                             className="rating-slider"
                           />
                           <div className="rating-display">
-                            <span className="rating-icon">{getRatingIcon(((hasPersistedRating ? persisted?.rating : ratings[movie.id]) ?? 5) as number)}</span>
-                            <span className="rating-value">{(hasPersistedRating ? persisted?.rating : ratings[movie.id]) ?? 5}</span>
+                            <span className="rating-icon">{getRatingIcon(sliderValue)}</span>
+                            <span className="rating-value">{sliderValue}</span>
                           </div>
                         </div>
                       </div>
