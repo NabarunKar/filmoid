@@ -34,9 +34,14 @@ def on_startup():
         logger.error(f"Database setup failed: {e}")
 
 # Local dev: allow the Vite dev server to call this API.
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173",
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -148,14 +153,6 @@ def _load_tmdb_slug_map() -> Tuple[Dict[int, str], Dict[str, int]]:
 
     return (tmdb_to_slug, slug_to_tmdb)
 
-# Local dev: allow the Vite dev server to call this API.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 @app.get("/health")
