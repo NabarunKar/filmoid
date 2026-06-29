@@ -1,3 +1,12 @@
+---
+title: Filmoid Backend
+emoji: 🍿
+colorFrom: blue
+colorTo: red
+sdk: docker
+pinned: false
+---
+
 # Filmoid — Recommendation-Only
 
 This branch contains only the movie recommendation web app (ratings-based recommendations).
