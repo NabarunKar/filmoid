@@ -153,22 +153,22 @@ The backend loads environment variables via `python-dotenv` (see `backend/.env`)
 
 ### Movie Search
 
-![Search](docs/screenshots/search-results.png)
+![Search](docs/search-results.png)
 
 ---
 
 ### Ratings
 
-![Ratings](docs/screenshots/ratings.png)
+![Ratings](docs/ratings.png)
 
 ---
 
 ### Recommendations
 
-![Recommendations](docs/screenshots/recommendations.png)
+![Recommendations](docs/recommendations.png)
 
 ---
 
 ### Authentication
 
-![Login](docs/screenshots/login.png)
+![Login](docs/login.png)
