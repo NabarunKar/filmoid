@@ -225,28 +225,64 @@ def _load_svd_algo():
 
     _log_rss("RSS before loading SVD model")
 
+    model_path = _SVD_MODEL_PATH.resolve()
+    logger.info("[SVD] Model path: %s", model_path)
+
+    exists = model_path.exists()
+    logger.info("[SVD] Model exists: %s", exists)
+    if exists:
+        try:
+            size = model_path.stat().st_size
+        except Exception:
+            logger.exception("[SVD] Failed to stat model file")
+            size = None
+        logger.info("[SVD] Model size (bytes): %s", size)
+
+        # Detect Git LFS pointer files to avoid confusing load failures.
+        try:
+            with model_path.open("rb") as f:
+                head = f.read(64)
+            is_lfs_pointer = head.startswith(b"version https://git-lfs.github.com/spec")
+            logger.info("[SVD] Model appears to be Git LFS pointer: %s", is_lfs_pointer)
+        except Exception:
+            logger.exception("[SVD] Failed to read model header for LFS detection")
+    else:
+        logger.warning("[SVD] Model file missing at %s", model_path)
+
     try:
-        if not _SVD_MODEL_PATH.exists():
+        if not exists:
             return None
 
         try:
             from surprise.dump import load as surprise_load  # type: ignore
         except Exception:
+            logger.exception("[SVD] Failed to import surprise.dump.load (dependency missing or broken)")
             return None
 
         try:
-            predictions, algo = surprise_load(str(_SVD_MODEL_PATH))
+            predictions, algo = surprise_load(str(model_path))
             _ = predictions  # unused
+            logger.info("[SVD] surprise.dump.load succeeded")
             return algo
         except Exception:
-            # Some users may have serialized the algo via joblib/pickle directly.
-            try:
-                import joblib  # type: ignore
+            logger.exception("[SVD] surprise.dump.load failed")
 
-                return joblib.load(_SVD_MODEL_PATH)
-            except Exception:
-                return None
+        # Some users may have serialized the algo via joblib/pickle directly.
+        try:
+            import joblib  # type: ignore
+        except Exception:
+            logger.exception("[SVD] Failed to import joblib for fallback load")
+            return None
+
+        try:
+            algo = joblib.load(model_path)
+            logger.info("[SVD] joblib.load fallback succeeded")
+            return algo
+        except Exception:
+            logger.exception("[SVD] joblib.load fallback failed")
+            return None
     except Exception:
+        logger.exception("[SVD] Unexpected error while loading SVD model")
         return None
     finally:
         _MEMORY_PROBE_SVD_DONE = True
