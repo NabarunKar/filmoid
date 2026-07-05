@@ -147,7 +147,7 @@ The backend loads environment variables via `python-dotenv` (see `backend/.env`)
 
 ### Home Page
 
-![Home](docs/screenshots/home.png)
+![Home](docs/home.png)
 
 ---
 
