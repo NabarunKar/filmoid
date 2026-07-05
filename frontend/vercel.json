@@ -3,6 +3,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://crushedoreos-filmoid-backend.hf.space/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
