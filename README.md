@@ -1,3 +1,12 @@
+---
+title: Filmoid Backend
+emoji: 🍿
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # Filmoid
 
 Filmoid is a full-stack movie recommendation web app developed as part of graduate coursework at **Texas A&M University**.
