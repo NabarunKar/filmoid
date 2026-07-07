@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 import uuid
 from sqlalchemy import desc
 from . import models, schemas
@@ -101,3 +102,65 @@ def delete_user_rating(db: Session, user_id: uuid.UUID, tmdb_id: int) -> bool:
     db.delete(row)
     db.commit()
     return True
+
+
+def record_mapping_misses(
+    db: Session,
+    misses: list[dict],
+    *,
+    reason: str = "missing_model_mapping",
+    source: str = "svd_input_mapping",
+) -> int:
+    """Persist mapping misses into the internal maintenance table.
+
+    For each miss (keyed by tmdb_id):
+      - if an existing row exists: increment occurrence_count and update last_seen_at
+      - else: insert a new row
+
+    Returns the number of misses processed.
+    """
+
+    if not misses:
+        return 0
+
+    processed = 0
+    for m in misses:
+        tmdb_id = m.get("tmdb_id")
+        if tmdb_id is None:
+            continue
+
+        existing = (
+            db.query(models.MissingTitle)
+            .filter(models.MissingTitle.tmdb_id == int(tmdb_id))
+            .first()
+        )
+
+        if existing:
+            existing.occurrence_count = int(existing.occurrence_count or 0) + 1
+            existing.last_seen_at = func.now()
+            # Keep the latest observed metadata.
+            title = m.get("movie_title")
+            if isinstance(title, str) and title.strip():
+                existing.movie_title = title.strip()
+            existing.release_year = m.get("release_year")
+            existing.letterboxd_slug = m.get("letterboxd_slug")
+
+            # Preserve resolved flag; do not auto-unresolve.
+            db.add(existing)
+        else:
+            row = models.MissingTitle(
+                tmdb_id=int(tmdb_id),
+                movie_title=str(m.get("movie_title") or tmdb_id),
+                release_year=m.get("release_year"),
+                letterboxd_slug=m.get("letterboxd_slug"),
+                reason=reason,
+                source=source,
+                occurrence_count=1,
+                resolved=False,
+            )
+            db.add(row)
+
+        processed += 1
+
+    db.commit()
+    return processed

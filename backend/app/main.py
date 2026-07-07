@@ -453,7 +453,7 @@ def _svd_recommendations(
     api_key: str,
     rated: List[Tuple[int, float]],
     top_n: int,
-) -> List[ScoredMovie]:
+) -> Tuple[List[ScoredMovie], List[Dict[str, object]]]:
     """Generate recommendations from the saved Surprise SVD model.
 
     This performs a lightweight "fold-in" to compute a temporary user vector
@@ -504,12 +504,22 @@ def _svd_recommendations(
     rated_inner: List[Tuple[int, float]] = []
     rated_inner_set: set[int] = set()
     mapping_misses: List[str] = []
+    audit_misses: List[Dict[str, object]] = []
 
     if numeric_items:
         for tmdb_id, rating in rated:
             inner = _try_inner_iid(trainset, tmdb_id)
             if inner is None:
                 mapping_misses.append(f"tmdbId={tmdb_id} (not in model)")
+                title, year = _tmdb_title_and_year(api_key, tmdb_id)
+                audit_misses.append(
+                    {
+                        "tmdb_id": int(tmdb_id),
+                        "movie_title": title,
+                        "release_year": year,
+                        "letterboxd_slug": None,
+                    }
+                )
                 continue
             rated_inner.append((inner, float(rating)))
             rated_inner_set.add(inner)
@@ -524,12 +534,28 @@ def _svd_recommendations(
                 mapping_misses.append(
                     f"tmdbId={tmdb_id} title={title!r} year={year} letterboxdSlug={lb_slug!r}"
                 )
+                audit_misses.append(
+                    {
+                        "tmdb_id": int(tmdb_id),
+                        "movie_title": title,
+                        "release_year": year,
+                        "letterboxd_slug": lb_slug,
+                    }
+                )
                 continue
             inner = _try_inner_iid(trainset, slug)
             if inner is None:
                 title, year = _tmdb_title_and_year(api_key, tmdb_id)
                 mapping_misses.append(
                     f"tmdbId={tmdb_id} title={title!r} year={year} mappedSlug={slug!r} (not in model)"
+                )
+                audit_misses.append(
+                    {
+                        "tmdb_id": int(tmdb_id),
+                        "movie_title": title,
+                        "release_year": year,
+                        "letterboxd_slug": None,
+                    }
                 )
                 continue
             rated_inner.append((inner, float(rating)))
@@ -607,7 +633,7 @@ def _svd_recommendations(
                     release_date=release_date,
                 )
             )
-        return movies
+        return (movies, audit_misses)
 
     # Slug-trained model: convert slugs to TMDB movies.
     for inner in top_inner:
@@ -628,7 +654,7 @@ def _svd_recommendations(
             )
         )
 
-    return movies
+    return (movies, audit_misses)
 
 
 def _blend_tmdb_recommendations(
@@ -699,10 +725,18 @@ def recommend(
     mode = (os.getenv("FILMOID_RECOMMENDER") or "auto").strip().lower()
 
     recs: List[ScoredMovie] = []
+    audit_misses: List[Dict[str, object]] = []
     if mode in {"auto", "svd"}:
         try:
-            recs = _svd_recommendations(req.tmdbApiKey, rated_pairs, req.topN)
+            recs, audit_misses = _svd_recommendations(req.tmdbApiKey, rated_pairs, req.topN)
             logger.info("Using SVD recommender (%d results)", len(recs))
+
+            # Internal maintenance: persist mapping misses (no impact on rec results).
+            try:
+                crud.record_mapping_misses(db, audit_misses)
+            except Exception:
+                # This is a non-critical maintenance feature; never fail the request.
+                logger.exception("Failed to record mapping misses")
         except Exception as e:
             logger.warning("SVD recommender unavailable; falling back (%s)", e)
             if mode == "svd":

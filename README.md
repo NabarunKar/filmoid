@@ -175,3 +175,21 @@ The backend loads environment variables via `python-dotenv` (see `backend/.env`)
 ### Authentication
 
 ![Login](docs/login.png)
+
+
+## Hugging Face Deployment Notes
+
+When deploying to Hugging Face Spaces:
+
+- Stage `.gitattributes` alongside the backend.
+- Create the deployment branch from the repository root.
+- Ensure `backend/models/svd_model.pkl` is hydrated via Git LFS.
+- Include the Hugging Face Docker YAML metadata in the root README.
+
+## Internal Maintenance: Missing Title Tracking
+
+The backend includes an internal maintenance feature that tracks movies that fail to map cleanly during SVD-based recommendation generation (due to it having missing LetterboxdSlug against its tmdb ID in the tracker csv file).
+
+- These entries are written to a Supabase table (`missing_titles`) as an internal audit queue.
+- The data is **not** exposed via the public API and is not visible in the frontend.
+- The intent is to periodically review unresolved items, improve mapping coverage over time, and reduce future misses.

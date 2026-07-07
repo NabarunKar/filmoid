@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, JSON, String
 from sqlalchemy.dialects.postgresql import UUID
 from .custom_types import CIText
 from sqlalchemy.sql import func
@@ -45,3 +45,21 @@ class UserRating(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", backref="ratings")
+
+
+class MissingTitle(Base):
+    __tablename__ = "missing_titles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    last_seen_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    tmdb_id = Column(Integer, nullable=False, unique=True, index=True)
+    movie_title = Column(String, nullable=False)
+    release_year = Column(Integer, nullable=True)
+    letterboxd_slug = Column(String, nullable=True)
+
+    reason = Column(String, nullable=False, default="missing_model_mapping")
+    source = Column(String, nullable=False, default="svd_input_mapping")
+    occurrence_count = Column(Integer, nullable=False, default=1)
+    resolved = Column(Boolean, nullable=False, default=False)
