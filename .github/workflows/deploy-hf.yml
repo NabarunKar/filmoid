@@ -1,0 +1,40 @@
+name: Deploy Backend to Hugging Face
+
+# Trigger this workflow every time you push to master
+on:
+  push:
+    branches:
+      - master
+    # Crucial: Only trigger if backend files are actually changed.
+    # This prevents wasting build time if we only updated the React frontend.
+    paths:
+      - 'backend/**'
+      - 'Dockerfile'
+      - 'README.md'
+      - '.gitattributes'
+
+jobs:
+  deploy-to-hf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true # Ensures GitHub Actions pulls our 455MB model properly
+
+      - name: Deploy clean state to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # 1. Configure the automated bot identity
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions Bot"
+          
+          # 2. Execute our surgical deployment sequence
+          git checkout --orphan hf-deploy
+          git rm -rf --cached .
+          git add backend/ Dockerfile README.md .gitattributes
+          git commit -m "Automated CI/CD deployment from GitHub Actions"
+          
+          # 3. Force push to your Hugging Face Space using the secure token
+          git push https://user:${HF_TOKEN}@huggingface.co/spaces/crushedoreos/filmoid-backend hf-deploy:main --force
