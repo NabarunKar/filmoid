@@ -19,23 +19,17 @@ https://filmoid.vercel.app/
 - 💾 **Recommendation history** saved as sessions for authenticated users
 - ☁️ **Cloud deployment** (Vercel frontend + Hugging Face Spaces backend + Supabase Postgres)
 
-## Current architecture
+## System Architecture
 
-- **Frontend:** React + Vite (`frontend/`)
-- **Backend:** FastAPI + SQLAlchemy (`backend/`)
-- **Database:** PostgreSQL (Supabase)
-- **Deployment:**
-	- Backend deployed on **Hugging Face Spaces** (Docker)
-	- Frontend deployed on **Vercel**
-	- Vercel rewrite proxies `/api/*` → the HF Spaces backend (see `frontend/vercel.json`)
+Filmoid uses a decoupled cloud architecture:
 
-```mermaid
-flowchart LR
-	U[User Browser] -->|Vercel| FE[React + Vite Frontend]
-	FE -->|/api/* (rewrite)| BE[FastAPI Backend on HF Spaces]
-	BE --> DB[(Supabase Postgres)]
-	FE -->|TMDB v3 API| TMDB[(TMDB)]
-```
+- React + Vite frontend deployed on Vercel
+- FastAPI recommendation backend deployed on Hugging Face Spaces
+- Supabase PostgreSQL for persistent user data
+- TMDB API for movie metadata/search
+- Surprise SVD model for collaborative filtering recommendations
+
+![Filmoid Architecture](docs/architecture.png)
 
 ## Authentication
 
